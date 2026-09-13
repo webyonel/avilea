@@ -1,0 +1,186 @@
+---
+// src/components/public/PostCard.astro
+// Card de un post del blog. Click abre el modal fullscreen (PostModal),
+// ya no navega a /blog/:slug porque esa ruta no existe en esta scope.
+// El handler serializa el post completo (incluyendo `contentHtml` que
+// pre-renderiza el servidor) y dispara el evento `post:open`.
+import type { Post } from '../../lib/posts';
+import { POST_CATEGORY_LABEL, formatPostDate } from '../../lib/posts';
+
+interface Props {
+  post: Post & { contentHtml?: string };
+}
+
+const { post } = Astro.props;
+const dateLabel = formatPostDate(post.date);
+const categoryLabel = POST_CATEGORY_LABEL[post.category];
+
+// Payload que se pasa al modal al abrir. Incluímos todo lo que PostModal
+// necesita para renderizar (title, contentHtml, cover, etc.).
+const payload = {
+  title: post.title,
+  contentHtml: post.contentHtml ?? '',
+  cover: post.cover,
+  coverAlt: post.title,
+  categoryLabel,
+  dateLabel,
+  author: post.author,
+};
+---
+
+<article class="post-card" data-reveal>
+  <button
+    type="button"
+    class="post-card__link"
+    data-post-card
+    data-post={JSON.stringify(payload)}
+    aria-label={`Leer: ${post.title}`}
+  >
+    <div class="post-card__media">
+      <img src={post.cover} alt={post.title} loading="lazy" class="post-card__img" />
+      <span class="post-card__chip">{categoryLabel}</span>
+    </div>
+    <div class="post-card__body">
+      <p class="post-card__meta">
+        <time datetime={post.date}>{dateLabel}</time>
+        {post.author && <><span aria-hidden="true">·</span><span>{post.author}</span></>}
+      </p>
+      <h3 class="post-card__title">{post.title}</h3>
+      <p class="post-card__excerpt">{post.excerpt}</p>
+      <span class="post-card__cta">
+        Leer artículo
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16">
+          <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+        </svg>
+      </span>
+    </div>
+  </button>
+</article>
+
+<style>
+  .post-card {
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: transform 0.28s var(--ease), box-shadow 0.28s var(--ease), border-color 0.28s var(--ease);
+    height: 100%;
+  }
+  .post-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: transparent;
+  }
+
+  .post-card__link {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    background: none;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+  .post-card__link:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+
+  .post-card__media {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    overflow: hidden;
+    background: var(--bg-alt);
+  }
+  .post-card__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s var(--ease);
+  }
+  .post-card:hover .post-card__img {
+    transform: scale(1.04);
+  }
+  .post-card__chip {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    padding: 4px 10px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--primary);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+
+  .post-card__body {
+    padding: 18px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+  }
+  .post-card__meta {
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+  }
+  .post-card__title {
+    margin: 0;
+    font-size: 19px;
+    line-height: 1.3;
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .post-card__excerpt {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    flex: 1;
+  }
+  .post-card__cta {
+    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .post-card:hover .post-card__cta { color: var(--accent-2); }
+</style>
+
+<script>
+  // Click en cualquier card dispara el evento `post:open` con el payload
+  // del post. PostModal escucha ese evento y se popula.
+  document.querySelectorAll<HTMLButtonElement>('[data-post-card]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const raw = btn.dataset.post;
+      if (!raw) return;
+      try {
+        const payload = JSON.parse(raw);
+        document.dispatchEvent(new CustomEvent('post:open', { detail: payload }));
+      } catch (err) {
+        console.error('[PostCard] no se pudo parsear data-post:', err);
+      }
+    });
+  });
+</script>

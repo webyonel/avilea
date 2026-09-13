@@ -1,0 +1,220 @@
+---
+// src/components/public/Gallery.astro
+// Galería de fotos responsiva con lightbox mínimo al hacer click.
+// Diseño: CSS grid; en mobile 1 col, tablet 2, desktop 3.
+// Sin backend: las imágenes son URLs/rutas pasadas por props.
+export type GalleryItem = {
+  src: string;
+  alt?: string;
+  caption?: string;
+};
+
+interface Props {
+  items: GalleryItem[];
+}
+
+const { items } = Astro.props;
+---
+
+<ul class="gallery" data-gallery>
+  {items.map((item, i) => (
+    <li class="gallery__item" data-reveal>
+      <button
+        type="button"
+        class="gallery__btn"
+        data-gallery-open
+        data-src={item.src}
+        data-caption={item.caption ?? ''}
+        aria-label={`Ampliar: ${item.alt ?? item.caption ?? 'imagen'}`}
+      >
+        <img
+          src={item.src}
+          alt={item.alt ?? ''}
+          loading="lazy"
+          class="gallery__img"
+        />
+      </button>
+    </li>
+  ))}
+</ul>
+
+<!-- Lightbox inline. Same structure que probador: full-screen friendly. -->
+<div class="gallery-lightbox" id="galleryLightbox" hidden role="dialog" aria-modal="true" aria-label="Imagen ampliada">
+  <div class="gallery-lightbox__backdrop" data-lightbox-close aria-hidden="true"></div>
+  <div class="gallery-lightbox__panel" role="document">
+    <button type="button" class="gallery-lightbox__close" aria-label="Cerrar" data-lightbox-close>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="22" height="22">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <figure class="gallery-lightbox__figure">
+      <img class="gallery-lightbox__img" alt="" data-lightbox-img />
+      <figcaption class="gallery-lightbox__caption" data-lightbox-caption></figcaption>
+    </figure>
+  </div>
+</div>
+
+<style>
+  .gallery {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  @media (min-width: 720px) {
+    .gallery { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  }
+  @media (min-width: 980px) {
+    .gallery { grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  }
+
+  .gallery__item { display: block; }
+
+  .gallery__btn {
+    display: block;
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    background: none;
+    border: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    cursor: zoom-in;
+    text-align: left;
+    transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease);
+  }
+  .gallery__btn:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+  .gallery__btn:focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 3px;
+  }
+
+  .gallery__img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+    background: var(--bg-alt);
+  }
+
+  /* Lightbox */
+  .gallery-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .gallery-lightbox[hidden] { display: none; }
+  .gallery-lightbox__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 31, 92, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: zoom-out;
+  }
+  .gallery-lightbox__panel {
+    position: relative;
+    z-index: 1;
+    max-width: min(960px, 95vw);
+    max-height: 92vh;
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: gallery-pop 0.28s var(--ease);
+  }
+  @keyframes gallery-pop {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  .gallery-lightbox__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .gallery-lightbox__close:hover { color: var(--accent); }
+  .gallery-lightbox__figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .gallery-lightbox__img {
+    display: block;
+    width: 100%;
+    max-height: 78vh;
+    object-fit: contain;
+    background: var(--bg);
+  }
+  .gallery-lightbox__caption {
+    padding: 14px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    text-align: center;
+    border-top: 1px solid var(--line);
+    background: var(--white);
+  }
+  .gallery-lightbox__caption:empty { display: none; }
+</style>
+
+<script>
+  // Lightbox: abre al click en cualquier [data-gallery-open], cierra con X / backdrop / Escape.
+  const lb = document.getElementById('galleryLightbox');
+  const lbImg = lb?.querySelector<HTMLImageElement>('[data-lightbox-img]');
+  const lbCap = lb?.querySelector<HTMLElement>('[data-lightbox-caption]');
+
+  function openLightbox(src: string, alt: string, caption: string) {
+    if (!lb || !lbImg || !lbCap) return;
+    lbImg.src = src;
+    lbImg.alt = alt;
+    lbCap.textContent = caption;
+    lb.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    if (!lb) return;
+    lb.hidden = true;
+    if (lbImg) lbImg.src = '';
+    document.body.style.overflow = '';
+  }
+
+  document.querySelectorAll<HTMLButtonElement>('[data-gallery-open]').forEach((b) => {
+    const triggerImg = b.querySelector<HTMLImageElement>('img');
+    b.addEventListener('click', () => {
+      openLightbox(
+        b.dataset.src || '',
+        triggerImg?.alt || '',
+        b.dataset.caption || '',
+      );
+    });
+  });
+  lb?.querySelectorAll<HTMLElement>('[data-lightbox-close]').forEach((b) => {
+    b.addEventListener('click', closeLightbox);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && lb && !lb.hidden) closeLightbox();
+  });
+</script>

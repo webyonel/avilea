@@ -1,0 +1,1554 @@
+---
+// src/pages/admin/index.astro
+// Panel de administración: sidebar + dashboard/productos/nuevo.
+// Standalone (sin Layout público). Auth vía Supabase (cookie).
+// Productos: fetch/create/delete contra /api/admin/products (Supabase server-side).
+// Tasa USD: localStorage hasta próxima fase.
+
+import '../../styles/styles.css';
+import '../../styles/admin.css';
+
+import { CATEGORIES, CATEGORY_LABEL, type Category } from '../../lib/catalog';
+import { POST_CATEGORIES, POST_CATEGORY_LABEL, type Post, type PostCategory } from '../../lib/posts';
+import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Avilea · Panel de Administración</title>
+    <link rel="icon" type="image/webp" href="/logo.webp" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <!-- ============== ADMIN PANEL ============== -->
+    <div class="admin-shell" id="adminShell">
+      <!-- Sidebar -->
+      <aside class="admin-sidebar">
+        <a href="/" class="logo sidebar-logo">
+          <img src="/logo.webp" alt="Avilea Óptica" class="sidebar-logo-img" width="180" height="180" />
+          <span class="sidebar-logo-sub">Admin · v1</span>
+        </a>
+
+        <nav class="admin-nav">
+          <span class="nav-section">General</span>
+          <a href="#dashboard" class="admin-link active" data-view="dashboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            Dashboard
+          </a>
+          <a href="#productos" class="admin-link" data-view="productos">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            Productos
+            <span class="nav-badge" id="totalBadge">0</span>
+          </a>
+          <a href="#nuevo" class="admin-link" data-view="nuevo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            Nuevo producto
+          </a>
+          <a href="#blog" class="admin-link" data-view="blog">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="8" y1="13" x2="16" y2="13"></line>
+              <line x1="8" y1="17" x2="14" y2="17"></line>
+            </svg>
+            Blog
+            <span class="nav-badge" id="postsBadge">0</span>
+          </a>
+          <a href="#nuevo-post" class="admin-link" data-view="nuevo-post">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            Nueva publicación
+          </a>
+
+          <span class="nav-section">Sitio</span>
+          <a href="/" target="_blank" rel="noopener" class="admin-link">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+              <polyline points="15 3 21 3 21 9"></polyline>
+              <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            Ver sitio
+          </a>
+        </nav>
+
+        <div class="sidebar-foot">
+          <div class="user-card">
+            <div class="avatar" id="userAvatar">A</div>
+            <div>
+              <strong id="userName">Administrador</strong>
+              <span id="userEmail">cargando…</span>
+            </div>
+          </div>
+          <button class="btn-logout" id="logoutBtn" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            Cerrar sesión
+          </button>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="admin-main">
+        <!-- Top bar -->
+        <header class="admin-top">
+          <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menú" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
+          <div>
+            <span class="top-eyebrow">Panel de control</span>
+            <h2 class="top-title" id="topTitle">Dashboard</h2>
+          </div>
+          <div class="top-actions"></div>
+        </header>
+
+        <!-- Dashboard view -->
+        <section class="view view-dashboard active" data-view="dashboard">
+          <div class="kpi-grid">
+            <div class="kpi">
+              <div class="kpi-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"></circle>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </div>
+              <div>
+                <span class="kpi-label">Productos totales</span>
+                <span class="kpi-value" id="kpiTotal">0</span>
+              </div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-icon kpi-icon-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                </svg>
+              </div>
+              <div>
+                <span class="kpi-label">Categorías</span>
+                <span class="kpi-value" id="kpiCats">0</span>
+              </div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-icon kpi-icon-5">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+              </div>
+              <div>
+                <span class="kpi-label">Publicaciones</span>
+                <span class="kpi-value" id="kpiPosts">0</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="dash-row">
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Productos recientes</h3>
+                <a href="#" data-go="productos" class="panel-link">Ver todos →</a>
+              </div>
+              <div class="recent-list" id="recentList"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <h3>Acciones rápidas</h3>
+              </div>
+              <div class="quick-actions">
+                <button class="qa" data-go="nuevo" type="button">
+                  <div class="qa-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </div>
+                  <div>
+                    <strong>Agregar producto</strong>
+                    <span>Sube una nueva armadura al catálogo</span>
+                  </div>
+                </button>
+                <div class="qa qa-rate">
+                  <div class="qa-icon qa-icon-3">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <line x1="12" y1="1" x2="12" y2="23"></line>
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                  </div>
+                  <div class="qa-rate-body">
+                    <div class="qa-rate-head">
+                      <div>
+                        <strong>Tasa USD → MN</strong>
+                        <span>Define el cambio del dólar para los precios</span>
+                      </div>
+                      <span class="qa-rate-current" id="usdRateCurrent">Sin definir</span>
+                    </div>
+                    <div class="qa-rate-form">
+                      <div class="qa-rate-input-wrap">
+                        <span class="qa-rate-prefix">1 USD =</span>
+                        <input
+                          type="number"
+                          id="usdRateInput"
+                          placeholder="0"
+                          min="0"
+                          step="0.01"
+                          inputmode="decimal"
+                        />
+                        <span class="qa-rate-suffix">MN</span>
+                      </div>
+                      <button type="button" class="qa-rate-save" id="usdRateSave" aria-label="Guardar tasa">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                          <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button class="qa" data-go="nuevo-post" type="button">
+                  <div class="qa-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                      <polyline points="14 2 14 8 20 8"></polyline>
+                      <line x1="12" y1="13" x2="12" y2="19"></line>
+                      <line x1="9" y1="16" x2="15" y2="16"></line>
+                    </svg>
+                  </div>
+                  <div>
+                    <strong>Crear publicación</strong>
+                    <span>Sumá un nuevo artículo al blog</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Productos view -->
+        <section class="view view-productos" data-view="productos" hidden>
+          <div class="panel">
+            <div class="panel-head panel-head-toolbar">
+              <div class="toolbar">
+                <div class="search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="search" id="searchProduct" placeholder="Buscar producto…" />
+                </div>
+                <select id="filterCategory" class="select">
+                  <option value="all">Todas las categorías</option>
+                  {CATEGORIES.map((c) => <option value={c}>{CATEGORY_LABEL[c]}</option>)}
+                </select>
+              </div>
+              <button class="btn btn-primary" data-go="nuevo" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Nuevo producto
+              </button>
+            </div>
+
+            <div class="table-wrap">
+              <table class="data-table" id="productTable">
+                <thead>
+                  <tr>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th>Precio</th>
+                    <th class="th-actions">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="productTableBody"></tbody>
+              </table>
+              <div class="empty-state" id="emptyState" hidden>
+                <div class="empty-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="9"></circle>
+                    <circle cx="12" cy="12" r="3"></circle>
+                  </svg>
+                </div>
+                <h4>No hay productos</h4>
+                <p>Empieza creando el primero.</p>
+                <button class="btn btn-primary" data-go="nuevo" type="button">Crear producto</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Nuevo producto view -->
+        <section class="view view-nuevo" data-view="nuevo" hidden>
+          <div class="form-grid">
+            <form class="panel form-panel" id="productForm" novalidate>
+              <div class="panel-head">
+                <h3>Información del producto</h3>
+                <p class="panel-sub">Completa los datos de la nueva armadura.</p>
+              </div>
+
+              <div class="field">
+                <label for="pName">Nombre del producto</label>
+                <div class="input-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path>
+                    <line x1="7" y1="7" x2="7.01" y2="7"></line>
+                  </svg>
+                  <input type="text" id="pName" placeholder="Ej. Aria" required maxlength="40" />
+                </div>
+              </div>
+
+              <div class="field" id="pIdField" hidden>
+                <label for="pId">ID del producto <em>*</em></label>
+                <div class="input-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 7h18M3 12h18M3 17h12"></path>
+                  </svg>
+                  <input
+                    type="text"
+                    id="pId"
+                    placeholder="ej. aria-001"
+                    maxlength="40"
+                    pattern="[a-z0-9-]{3,40}"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
+                <small class="field-hint" id="pIdHint">
+                  Solo letras minúsculas, números y guiones. 3 a 40 caracteres. Lo usan la URL y la base de datos.
+                </small>
+              </div>
+
+              <p class="field-hint field-hint-auto" id="pIdAutoHint" hidden>
+                Esta categoría no requiere ID — se genera automáticamente.
+              </p>
+
+              <div class="field-row">
+                <div class="field">
+                  <label for="pCategory">Categoría</label>
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M3 3h7v7H3z"></path>
+                      <path d="M14 3h7v7h-7z"></path>
+                      <path d="M14 14h7v7h-7z"></path>
+                      <path d="M3 14h7v7H3z"></path>
+                    </svg>
+                    <select id="pCategory" required class="input-select">
+                      <option value="">Selecciona…</option>
+                      {CATEGORIES.map((c) => <option value={c}>{CATEGORY_LABEL[c]}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label for="pPrice">Precio (MN)</label>
+                  <div class="input-wrap">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <line x1="12" y1="1" x2="12" y2="23"></line>
+                      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                    </svg>
+                    <input type="number" id="pPrice" placeholder="0.00" min="0" step="0.01" required />
+                  </div>
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Imagen del producto</label>
+                <div class="upload-zone" id="uploadZone">
+                  <input type="file" id="pImage" accept="image/*" hidden />
+                  <div class="upload-content" id="uploadContent">
+                    <div class="upload-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                    </div>
+                    <strong>Arrastra una imagen aquí</strong>
+                    <span>o haz clic para seleccionar</span>
+                    <em>PNG, JPG, WEBP · se comprime automáticamente</em>
+                  </div>
+                  <img id="uploadPreview" alt="" hidden />
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-ghost" id="cancelBtn">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  Guardar producto
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Blog view -->
+        <section class="view view-blog" data-view="blog" hidden>
+          <div class="panel">
+            <div class="panel-head panel-head-toolbar">
+              <div class="toolbar">
+                <div class="search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                  </svg>
+                  <input type="search" id="searchPost" placeholder="Buscar publicación…" />
+                </div>
+                <select id="filterPostCategory" class="select">
+                  <option value="all">Todas las categorías</option>
+                  {POST_CATEGORIES.map((c) => <option value={c}>{POST_CATEGORY_LABEL[c]}</option>)}
+                </select>
+              </div>
+              <button class="btn btn-primary" data-go="nuevo-post" type="button">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+                Nueva publicación
+              </button>
+            </div>
+
+            <div class="table-wrap">
+              <table class="data-table" id="postTable">
+                <thead>
+                  <tr>
+                    <th>Publicación</th>
+                    <th>Categoría</th>
+                    <th>Estado</th>
+                    <th>Fecha</th>
+                    <th class="th-actions">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="postTableBody"></tbody>
+              </table>
+              <div class="empty-state" id="postEmptyState" hidden>
+                <div class="empty-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                </div>
+                <h4>No hay publicaciones</h4>
+                <p>Empezá creando la primera.</p>
+                <button class="btn btn-primary" data-go="nuevo-post" type="button">Crear publicación</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Nueva publicación view -->
+        <section class="view view-nuevo-post" data-view="nuevo-post" hidden>
+          <div class="form-grid">
+            <form class="panel form-panel" id="postForm" novalidate>
+              <div class="panel-head">
+                <h3>Información de la publicación</h3>
+                <p class="panel-sub">Completá los datos del nuevo artículo del blog.</p>
+              </div>
+
+              <div class="field">
+                <label for="postTitle">Título <em>*</em></label>
+                <div class="input-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="4 7 4 4 20 4 20 7"></polyline>
+                    <line x1="9" y1="20" x2="15" y2="20"></line>
+                    <line x1="12" y1="4" x2="12" y2="20"></line>
+                  </svg>
+                  <input type="text" id="postTitle" placeholder="Ej. Cómo cuidar tus espejuelos" required maxlength="120" />
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="postExcerpt">Resumen (excerpt) <em>*</em></label>
+                <div class="input-wrap">
+                  <textarea id="postExcerpt" rows="3" maxlength="240" required placeholder="Una o dos frases que enganchen al lector."></textarea>
+                </div>
+                <small class="field-hint">Aparece debajo del título en la card. Máx. 240 caracteres.</small>
+              </div>
+
+              <div class="field">
+                <label for="postContent">Contenido (markdown) <em>*</em></label>
+                <button type="button" class="md-help-trigger" data-md-help-open aria-label="Ver guía de Markdown">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                    <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                  </svg>
+                  Guía Markdown
+                </button>
+                <div class="input-wrap input-wrap-textarea">
+                  <textarea id="postContent" rows="14" required placeholder="## Título&#10;&#10;Párrafo de apertura..."></textarea>
+                </div>
+                <small class="field-hint">Soportamos <code>## títulos</code>, <code>**negrita**</code>, <code>*itálica*</code>, listas y links. Lo renderiza el sitio con marked.</small>
+              </div>
+
+              <div class="field">
+                <label for="postCategory">Categoría <em>*</em></label>
+                <div class="input-wrap">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M3 3h7v7H3z"></path>
+                    <path d="M14 3h7v7h-7z"></path>
+                    <path d="M14 14h7v7h-7z"></path>
+                    <path d="M3 14h7v7H3z"></path>
+                  </svg>
+                  <select id="postCategory" required class="input-select">
+                    <option value="">Selecciona…</option>
+                    {POST_CATEGORIES.map((c) => <option value={c}>{POST_CATEGORY_LABEL[c]}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div class="field">
+                <label>Imagen de portada <em>*</em></label>
+                <div class="upload-zone" id="postUploadZone">
+                  <input type="file" id="postCoverInput" accept="image/*" hidden />
+                  <div class="upload-content" id="postUploadContent">
+                    <div class="upload-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                      </svg>
+                    </div>
+                    <strong>Arrastra una imagen aquí</strong>
+                    <span>o hacé clic para seleccionar</span>
+                    <em>PNG, JPG, WEBP · se comprime automáticamente</em>
+                  </div>
+                  <img id="postUploadPreview" alt="" hidden />
+                </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="button" class="btn btn-ghost" id="postCancelBtn">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  Guardar publicación
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast-wrap" id="toastWrap"></div>
+
+    <!-- Modal de ayuda de Markdown -->
+    <MarkdownHelpModal />
+
+    <script>
+      import {
+        supabaseBrowser,
+        signOutBrowser,
+        getAccessToken,
+      } from '../../lib/admin-auth';
+      import {
+        CATEGORY_LABEL,
+        MANUAL_ID_CATEGORIES,
+        type Product,
+        type Category,
+      } from '../../lib/catalog';
+      import {
+        POST_CATEGORIES,
+        POST_CATEGORY_LABEL,
+        type Post,
+      } from '../../lib/posts';
+
+      // Sin sesión → fuera.
+      const { data: sessionData } = await supabaseBrowser.auth.getSession();
+      if (!sessionData.session) {
+        window.location.replace('/admin/login');
+        throw new Error('no session');
+      }
+
+      const user = sessionData.session.user;
+      const userEmailEl = document.getElementById('userEmail');
+      const userNameEl = document.getElementById('userName');
+      const userAvatarEl = document.getElementById('userAvatar');
+      if (userEmailEl) userEmailEl.textContent = user.email ?? '—';
+      if (userNameEl) {
+        userNameEl.textContent =
+          (user.user_metadata?.full_name as string | undefined) ??
+          (user.email ? user.email.split('@')[0] : 'Administrador');
+      }
+      if (userAvatarEl) {
+        const src = userNameEl?.textContent ?? user.email ?? 'A';
+        userAvatarEl.textContent = src.charAt(0).toUpperCase();
+      }
+
+      const CATEGORIES_LIST: Category[] = [
+        'pregraduados', 'armaduras', 'femenino', 'masculino',
+        'ninos', 'unisex', 'accesorios', 'gastronomia',
+      ];
+
+      // Mismas categorías, pero como array (Set → Array) para .includes().
+      const MANUAL_ID_CATS: Category[] = Array.from(MANUAL_ID_CATEGORIES);
+
+      /* Slug simple: minúsculas, sin acentos, separadores → guion. */
+      function slugify(s: string): string {
+        return s
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[̀-ͯ]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .slice(0, 40);
+      }
+
+      function categoryNeedsManualId(cat: string | ''): boolean {
+        return cat !== '' && MANUAL_ID_CATS.includes(cat as Category);
+      }
+
+      /* ---------- Estado ---------- */
+      let products: Product[] = [];
+      let posts: Post[] = [];
+      let currentImage: string | null = null;
+      let currentPostImage: string | null = null;
+
+      /* ---------- Toast ---------- */
+      function toast(message: string, type: 'success' | 'error' = 'success') {
+        const wrap = document.getElementById('toastWrap');
+        if (!wrap) return;
+        const el = document.createElement('div');
+        el.className = `toast ${type}`;
+        const icons: Record<string, string> = {
+          success:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>',
+          error:
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>',
+        };
+        el.innerHTML = `${icons[type] || icons.success}<span>${message}</span>`;
+        wrap.appendChild(el);
+        setTimeout(() => {
+          el.classList.add('leaving');
+          setTimeout(() => el.remove(), 300);
+        }, 3000);
+      }
+
+      /* ---------- Format ---------- */
+      const fmtPrice = (n: number) =>
+        Number(n).toLocaleString('es-CU', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
+      function catLabel(cat: string): string {
+        return (CATEGORY_LABEL as Record<string, string>)[cat] || cat;
+      }
+
+      function escapeHtml(s: string): string {
+        return String(s).replace(/[&<>"']/g, (c) =>
+          ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string)
+        );
+      }
+
+      /* ---------- API helpers ---------- */
+      async function authHeaders(): Promise<Record<string, string>> {
+        const token = await getAccessToken();
+        return token ? { Authorization: `Bearer ${token}` } : {};
+      }
+
+      async function apiGet<T>(url: string): Promise<T> {
+        const headers = await authHeaders();
+        const res = await fetch(url, { credentials: 'include', headers });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+        return res.json();
+      }
+
+      async function apiSend<T>(url: string, method: string, body?: unknown): Promise<T> {
+        const headers = await authHeaders();
+        const res = await fetch(url, {
+          method,
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', ...headers },
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
+        return res.json();
+      }
+
+      /* ---------- Fallback thumb ---------- */
+      function fallbackThumb(p: Product): string {
+        const colors: Record<string, string> = {
+          pregraduados: '#fef3c7',
+          armaduras: '#e3ecf8',
+          femenino: '#fce7f3',
+          masculino: '#dbeafe',
+          ninos: '#fed7aa',
+          unisex: '#d1fae5',
+          accesorios: '#ede9fe',
+          gastronomia: '#fee2e2',
+        };
+        const bg = colors[p.category] || '#f6f8fb';
+        return `<svg viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg">
+          <rect width="240" height="120" fill="${bg}"/>
+          <circle cx="85" cy="60" r="22" fill="none" stroke="#0a1f5c" stroke-width="3" opacity="0.4"/>
+          <circle cx="155" cy="60" r="22" fill="none" stroke="#0a1f5c" stroke-width="3" opacity="0.4"/>
+          <line x1="107" y1="60" x2="133" y2="60" stroke="#0a1f5c" stroke-width="3" opacity="0.4"/>
+        </svg>`;
+      }
+
+      /* ---------- View switching ---------- */
+      function switchView(view: string) {
+        document.querySelectorAll('.admin-link').forEach((l) => l.classList.remove('active'));
+        document
+          .querySelectorAll<HTMLElement>('.admin-link')
+          .forEach((l) => {
+            if (l.dataset.view === view) l.classList.add('active');
+          });
+
+        document.querySelectorAll<HTMLElement>('.view').forEach((v) => {
+          v.hidden = v.dataset.view !== view;
+        });
+
+        const titles: Record<string, string> = {
+          dashboard: 'Dashboard',
+          productos: 'Productos',
+          nuevo: 'Nuevo producto',
+          blog: 'Blog',
+          'nuevo-post': 'Nueva publicación',
+        };
+        const topTitle = document.getElementById('topTitle');
+        if (topTitle) topTitle.textContent = titles[view] || 'Dashboard';
+
+        document.getElementById('adminShell')?.classList.remove('menu-open');
+      }
+
+      /* ---------- Render ---------- */
+      function renderAll() {
+        renderKPIs();
+        renderRecent();
+        renderTable();
+        renderPostsTable();
+        updateBadges();
+      }
+
+      function updateBadges() {
+        const badge = document.getElementById('totalBadge');
+        if (badge) badge.textContent = String(products.length);
+        const pBadge = document.getElementById('postsBadge');
+        if (pBadge) pBadge.textContent = String(posts.length);
+      }
+
+      function renderKPIs() {
+        const totalEl = document.getElementById('kpiTotal');
+        const catsEl = document.getElementById('kpiCats');
+        const postsEl = document.getElementById('kpiPosts');
+
+        if (totalEl) totalEl.textContent = String(products.length);
+
+        const cats = new Set(products.map((p) => p.category)).size;
+        if (catsEl) catsEl.textContent = String(cats);
+
+        if (postsEl) postsEl.textContent = String(posts.length);
+      }
+
+      function renderRecent() {
+        const list = document.getElementById('recentList');
+        if (!list) return;
+        const recent = [...products].reverse().slice(0, 5);
+        if (!recent.length) {
+          list.innerHTML =
+            '<p style="color:var(--ink-mute);font-size:14px;text-align:center;padding:24px">Sin productos todavía.</p>';
+          return;
+        }
+        list.innerHTML = recent
+          .map(
+            (p) => `
+              <div class="recent-item">
+                <div class="recent-thumb">
+                  ${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">` : fallbackThumb(p)}
+                </div>
+                <div class="recent-info">
+                  <strong>${escapeHtml(p.name)}</strong>
+                  <span>${catLabel(p.category)}</span>
+                </div>
+                <span class="recent-price">$${fmtPrice(p.price)}<small> MN</small></span>
+              </div>`
+          )
+          .join('');
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById('productTableBody');
+        const empty = document.getElementById('emptyState');
+        const searchInput = document.getElementById('searchProduct') as HTMLInputElement | null;
+        const catSelect = document.getElementById('filterCategory') as HTMLSelectElement | null;
+        if (!tbody || !empty) return;
+
+        const search = (searchInput?.value || '').toLowerCase();
+        const cat = catSelect?.value || 'all';
+
+        const list = products.filter((p) => {
+          const matchSearch = !search || p.name.toLowerCase().includes(search);
+          const matchCat = cat === 'all' || p.category === cat;
+          return matchSearch && matchCat;
+        });
+
+        if (!list.length) {
+          tbody.innerHTML = '';
+          empty.hidden = false;
+          return;
+        }
+        empty.hidden = true;
+
+        tbody.innerHTML = list
+          .map(
+            (p) => `
+              <tr>
+                <td>
+                  <div class="row-product">
+                    <div class="row-thumb">
+                      ${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">` : fallbackThumb(p)}
+                    </div>
+                    <div>
+                      <span class="row-name">${escapeHtml(p.name)}</span>
+                      <span class="row-id">#${escapeHtml(p.id)}</span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="cat-chip cat-${p.category}">${catLabel(p.category)}</span></td>
+                <td><span class="row-price">$${fmtPrice(p.price)}<small> MN</small></span></td>
+                <td class="td-actions">
+                  <button class="btn-icon" title="Ver imagen" data-view-img="${escapeHtml(p.id)}" ${
+                    !p.image ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''
+                  }>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  </button>
+                  <button class="btn-icon danger" title="Eliminar" data-delete="${escapeHtml(p.id)}" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </td>
+              </tr>`
+          )
+          .join('');
+
+        tbody.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((btn) => {
+          btn.addEventListener('click', () => deleteProduct(btn.dataset.delete!));
+        });
+        tbody.querySelectorAll<HTMLButtonElement>('[data-view-img]').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const prod = products.find((p) => p.id === btn.dataset.viewImg);
+            if (prod?.image) window.open(prod.image, '_blank');
+          });
+        });
+      }
+
+      /* ---------- CRUD via API ---------- */
+      async function loadProducts(): Promise<void> {
+        try {
+          const data = await apiGet<{ products: Product[] }>('/api/admin/products');
+          products = data.products;
+        } catch (e) {
+          toast('Error al cargar productos: ' + (e instanceof Error ? e.message : ''), 'error');
+          products = [];
+        }
+      }
+
+      async function onCreateProduct(e: SubmitEvent) {
+        e.preventDefault();
+        const nameInput = document.getElementById('pName') as HTMLInputElement | null;
+        const catInput = document.getElementById('pCategory') as HTMLSelectElement | null;
+        const priceInput = document.getElementById('pPrice') as HTMLInputElement | null;
+        const idInput = document.getElementById('pId') as HTMLInputElement | null;
+        if (!nameInput || !catInput || !priceInput) return;
+
+        const name = nameInput.value.trim();
+        const category = catInput.value as Category | '';
+        const price = parseFloat(priceInput.value);
+
+        if (!name || !category || isNaN(price) || price < 0) {
+          toast('Completa todos los campos correctamente', 'error');
+          return;
+        }
+        if (!CATEGORIES_LIST.includes(category)) {
+          toast('Categoría inválida', 'error');
+          return;
+        }
+
+        // ID: obligatorio + formato slug si la categoría lo requiere.
+        // Para categorías auto, lo mandamos igual si tiene valor (el server
+        // lo acepta solo si matchea el patrón).
+        let manualId: string | undefined;
+        if (categoryNeedsManualId(category)) {
+          const raw = (idInput?.value ?? '').trim().toLowerCase();
+          if (!raw) {
+            toast('Esta categoría requiere un ID. Ingresá un identificador (ej. aria-001).', 'error');
+            idInput?.focus();
+            return;
+          }
+          if (!/^[a-z0-9-]{3,40}$/.test(raw)) {
+            toast('ID inválido. Solo letras minúsculas, números y guiones (3 a 40 caracteres).', 'error');
+            idInput?.focus();
+            return;
+          }
+          manualId = raw;
+        } else if (idInput?.value.trim()) {
+          const raw = idInput.value.trim().toLowerCase();
+          if (/^[a-z0-9-]{3,40}$/.test(raw)) manualId = raw;
+        }
+
+        try {
+          const { product } = await apiSend<{ product: Product }>(
+            '/api/admin/products',
+            'POST',
+            {
+              ...(manualId ? { id: manualId } : {}),
+              name,
+              category,
+              price,
+              image: currentImage,
+            }
+          );
+          products.push(product);
+          renderAll();
+          resetForm();
+          toast('Producto creado correctamente');
+          switchView('productos');
+        } catch (e) {
+          toast('Error al crear: ' + (e instanceof Error ? e.message : ''), 'error');
+        }
+      }
+
+      async function deleteProduct(id: string) {
+        if (!confirm('¿Eliminar este producto?')) return;
+        try {
+          await apiSend(`/api/admin/products/${encodeURIComponent(id)}`, 'DELETE');
+          products = products.filter((p) => p.id !== id);
+          renderAll();
+          toast('Producto eliminado');
+        } catch (e) {
+          toast('Error al eliminar: ' + (e instanceof Error ? e.message : ''), 'error');
+        }
+      }
+
+      /* ============================================================
+         Posts CRUD
+         ============================================================ */
+
+      function postCatLabel(cat: string): string {
+        return (POST_CATEGORY_LABEL as Record<string, string>)[cat] || cat;
+      }
+
+      function formatPostDateShort(iso: string): string {
+        if (!iso) return '';
+        const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso);
+        if (isNaN(d.getTime())) return iso;
+        return d.toLocaleDateString('es-ES', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
+      }
+
+      async function loadPosts(): Promise<void> {
+        try {
+          const data = await apiGet<{ posts: Post[] }>('/api/admin/posts');
+          posts = data.posts;
+        } catch (e) {
+          toast('Error al cargar publicaciones: ' + (e instanceof Error ? e.message : ''), 'error');
+          posts = [];
+        }
+      }
+
+      function renderPostsTable() {
+        const tbody = document.getElementById('postTableBody');
+        const empty = document.getElementById('postEmptyState');
+        const searchInput = document.getElementById('searchPost') as HTMLInputElement | null;
+        const catSelect = document.getElementById('filterPostCategory') as HTMLSelectElement | null;
+        if (!tbody || !empty) return;
+
+        const search = (searchInput?.value || '').toLowerCase();
+        const cat = catSelect?.value || 'all';
+
+        const list = posts.filter((p) => {
+          const matchSearch =
+            !search ||
+            p.title.toLowerCase().includes(search) ||
+            (p.author ?? '').toLowerCase().includes(search);
+          const matchCat = cat === 'all' || p.category === cat;
+          return matchSearch && matchCat;
+        });
+
+        if (!list.length) {
+          tbody.innerHTML = '';
+          empty.hidden = false;
+          return;
+        }
+        empty.hidden = true;
+
+        tbody.innerHTML = list
+          .map((p) => {
+            const status = p.is_published
+              ? '<span class="status-chip status-published">Publicado</span>'
+              : '<span class="status-chip status-draft">Borrador</span>';
+            return `
+              <tr>
+                <td>
+                  <div class="row-product">
+                    <div class="row-thumb row-thumb-post">
+                      ${p.cover ? `<img src="${escapeHtml(p.cover)}" alt="${escapeHtml(p.title)}">` : ''}
+                    </div>
+                    <div>
+                      <span class="row-name">${escapeHtml(p.title)}</span>
+                      <span class="row-id">/${escapeHtml(p.slug)}</span>
+                    </div>
+                  </div>
+                </td>
+                <td><span class="cat-chip cat-${escapeHtml(p.category)}">${escapeHtml(postCatLabel(p.category))}</span></td>
+                <td>${status}</td>
+                <td><span class="row-date">${escapeHtml(formatPostDateShort(p.published_at ?? p.date ?? ''))}</span></td>
+                <td class="td-actions">
+                  <button class="btn-icon danger" title="Eliminar" data-delete-post="${escapeHtml(p.id)}" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="3 6 5 6 21 6"></polyline>
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                    </svg>
+                  </button>
+                </td>
+              </tr>`;
+          })
+          .join('');
+
+        tbody.querySelectorAll<HTMLButtonElement>('[data-delete-post]').forEach((btn) => {
+          btn.addEventListener('click', () => deletePost(btn.dataset.deletePost!));
+        });
+      }
+
+      async function onCreatePost(e: SubmitEvent) {
+        e.preventDefault();
+
+        const titleEl = document.getElementById('postTitle') as HTMLInputElement | null;
+        const excerptEl = document.getElementById('postExcerpt') as HTMLTextAreaElement | null;
+        const contentEl = document.getElementById('postContent') as HTMLTextAreaElement | null;
+        const catEl = document.getElementById('postCategory') as HTMLSelectElement | null;
+
+        if (!titleEl || !excerptEl || !contentEl || !catEl) return;
+
+        const title = titleEl.value.trim();
+        const excerpt = excerptEl.value.trim();
+        const content = contentEl.value;
+        const category = catEl.value as PostCategory | '';
+
+        if (!title || title.length > 120) {
+          toast('Título inválido (1-120 caracteres).', 'error');
+          titleEl.focus();
+          return;
+        }
+        if (!excerpt || excerpt.length > 240) {
+          toast('Resumen inválido (1-240 caracteres).', 'error');
+          excerptEl.focus();
+          return;
+        }
+        if (!content.trim()) {
+          toast('El contenido no puede estar vacío.', 'error');
+          contentEl.focus();
+          return;
+        }
+        if (!currentPostImage) {
+          toast('Subí una imagen de portada.', 'error');
+          return;
+        }
+        if (!POST_CATEGORIES.includes(category as PostCategory)) {
+          toast('Categoría inválida.', 'error');
+          catEl.focus();
+          return;
+        }
+
+        try {
+          const { post } = await apiSend<{ post: Post }>(
+            '/api/admin/posts',
+            'POST',
+            {
+              title,
+              excerpt,
+              content,
+              cover: currentPostImage,
+              category,
+              is_published: true,
+            }
+          );
+          posts.unshift(post);
+          renderAll();
+          resetPostForm();
+          toast('Publicación creada correctamente');
+          switchView('blog');
+        } catch (e) {
+          toast('Error al crear: ' + (e instanceof Error ? e.message : ''), 'error');
+        }
+      }
+
+      async function deletePost(id: string) {
+        const target = posts.find((p) => p.id === id);
+        const label = target ? `"${target.title}"` : 'esta publicación';
+        if (!confirm(`¿Eliminar ${label}? Esta acción no se puede deshacer.`)) return;
+        try {
+          await apiSend(`/api/admin/posts/${encodeURIComponent(id)}`, 'DELETE');
+          posts = posts.filter((p) => p.id !== id);
+          renderAll();
+          toast('Publicación eliminada');
+        } catch (e) {
+          toast('Error al eliminar: ' + (e instanceof Error ? e.message : ''), 'error');
+        }
+      }
+
+      function resetPostForm() {
+        const form = document.getElementById('postForm') as HTMLFormElement | null;
+        form?.reset();
+        currentPostImage = null;
+        const zone = document.getElementById('postUploadZone');
+        const preview = document.getElementById('postUploadPreview') as HTMLImageElement | null;
+        const content = document.getElementById('postUploadContent');
+        const input = document.getElementById('postCoverInput') as HTMLInputElement | null;
+        zone?.classList.remove('has-image', 'drag');
+        if (preview) {
+          preview.hidden = true;
+          preview.src = '';
+        }
+        if (content) content.hidden = false;
+        if (input) input.value = '';
+      }
+
+      function setupPostUpload() {
+        const zone = document.getElementById('postUploadZone');
+        const input = document.getElementById('postCoverInput') as HTMLInputElement | null;
+        const preview = document.getElementById('postUploadPreview') as HTMLImageElement | null;
+        const content = document.getElementById('postUploadContent');
+        if (!zone || !input || !preview || !content) return;
+
+        zone.addEventListener('click', () => input.click());
+
+        ['dragenter', 'dragover'].forEach((ev) =>
+          zone.addEventListener(ev, (e) => {
+            e.preventDefault();
+            zone.classList.add('drag');
+          })
+        );
+        ['dragleave', 'drop'].forEach((ev) =>
+          zone.addEventListener(ev, (e) => {
+            e.preventDefault();
+            zone.classList.remove('drag');
+          })
+        );
+        zone.addEventListener('drop', (e) => {
+          const dt = (e as DragEvent).dataTransfer;
+          const file = dt?.files?.[0];
+          if (file) handleFile(file);
+        });
+        input.addEventListener('change', () => {
+          if (input.files?.[0]) handleFile(input.files[0]);
+        });
+
+        function handleFile(file: File) {
+          if (!file.type.startsWith('image/')) {
+            toast('El archivo debe ser una imagen', 'error');
+            return;
+          }
+          if (file.size > 25 * 1024 * 1024) {
+            toast('La imagen es demasiado grande (máx. 25 MB)', 'error');
+            return;
+          }
+          const originalKB = Math.round(file.size / 1024);
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const src = ev.target?.result as string;
+            compressToTarget(
+              src,
+              500,
+              (dataUrl, finalKB) => {
+                currentPostImage = dataUrl;
+                preview!.src = dataUrl;
+                preview!.hidden = false;
+                content!.hidden = true;
+                zone!.classList.add('has-image');
+                if (originalKB > 500 && finalKB < originalKB) {
+                  toast(`Imagen comprimida: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`);
+                }
+              },
+              () => toast('No se pudo procesar la imagen', 'error')
+            );
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      function resetForm() {
+        const form = document.getElementById('productForm') as HTMLFormElement | null;
+        form?.reset();
+        currentImage = null;
+        const zone = document.getElementById('uploadZone');
+        const preview = document.getElementById('uploadPreview') as HTMLImageElement | null;
+        const content = document.getElementById('uploadContent');
+        zone?.classList.remove('has-image', 'drag');
+        if (preview) preview.hidden = true;
+        if (content) content.hidden = false;
+        // Después de resetear, dejamos el campo ID según la categoría
+        // actualmente seleccionada (puede seguir oculta si es auto).
+        syncIdField();
+      }
+
+      /* ---------- Upload con compresión canvas ---------- */
+      function setupUpload() {
+        const zone = document.getElementById('uploadZone');
+        const input = document.getElementById('pImage') as HTMLInputElement | null;
+        const preview = document.getElementById('uploadPreview') as HTMLImageElement | null;
+        const content = document.getElementById('uploadContent');
+        if (!zone || !input || !preview || !content) return;
+
+        zone.addEventListener('click', () => input.click());
+
+        ['dragenter', 'dragover'].forEach((ev) =>
+          zone.addEventListener(ev, (e) => {
+            e.preventDefault();
+            zone.classList.add('drag');
+          })
+        );
+        ['dragleave', 'drop'].forEach((ev) =>
+          zone.addEventListener(ev, (e) => {
+            e.preventDefault();
+            zone.classList.remove('drag');
+          })
+        );
+        zone.addEventListener('drop', (e) => {
+          const dt = (e as DragEvent).dataTransfer;
+          const file = dt?.files?.[0];
+          if (file) handleFile(file);
+        });
+        input.addEventListener('change', () => {
+          if (input.files?.[0]) handleFile(input.files[0]);
+        });
+
+        function handleFile(file: File) {
+          if (!file.type.startsWith('image/')) {
+            toast('El archivo debe ser una imagen', 'error');
+            return;
+          }
+          // Tope de seguridad: 25 MB. Por encima de eso rechazamos para no
+          // colgar el browser. El usuario igual puede bajar la imagen antes
+          // de subirla. Por debajo, dejamos que la compresión haga su trabajo.
+          if (file.size > 25 * 1024 * 1024) {
+            toast('La imagen es demasiado grande (máx. 25 MB)', 'error');
+            return;
+          }
+          const originalKB = Math.round(file.size / 1024);
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const src = ev.target?.result as string;
+            compressToTarget(
+              src,
+              500,
+              (dataUrl, finalKB) => {
+                currentImage = dataUrl;
+                preview!.src = dataUrl;
+                preview!.hidden = false;
+                content!.hidden = true;
+                zone!.classList.add('has-image');
+                if (originalKB > 500 && finalKB < originalKB) {
+                  toast(
+                    `Imagen comprimida: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`
+                  );
+                }
+              },
+              () => toast('No se pudo procesar la imagen', 'error')
+            );
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+
+      function fmtSize(kb: number): string {
+        if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+        return `${kb} KB`;
+      }
+
+      /* Compresión multi-pasada: va bajando resolución y calidad hasta
+       * entrar en `targetKB` o agotar las pasadas. Devuelve JPEG.
+       *
+       * Pasadas (de mejor a peor):
+       *   1200 px / 0.85 · 1000 px / 0.80 · 800 px / 0.75 · 700 px / 0.70
+       *
+       * Para una foto de catálogo (cuadrada, fondo blanco, vista frontal)
+       * la primera pasada suele bastar; las demás solo se disparan si
+       * la original era muy grande. */
+      function compressToTarget(
+        src: string,
+        targetKB: number,
+        cb: (dataUrl: string, finalKB: number) => void,
+        onError: () => void
+      ) {
+        const img = new Image();
+        img.onerror = onError;
+        img.onload = () => {
+          const passes = [
+            { maxW: 1200, quality: 0.85 },
+            { maxW: 1000, quality: 0.80 },
+            { maxW: 800, quality: 0.75 },
+            { maxW: 700, quality: 0.70 },
+          ];
+          let i = 0;
+          function next() {
+            const { maxW, quality } = passes[i];
+            const ratio = Math.min(1, maxW / img.width);
+            const w = img.width * ratio;
+            const h = img.height * ratio;
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              onError();
+              return;
+            }
+            ctx.drawImage(img, 0, 0, w, h);
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) {
+                  onError();
+                  return;
+                }
+                const finalKB = Math.round(blob.size / 1024);
+                const r = new FileReader();
+                r.onload = () => {
+                  const dataUrl = r.result as string;
+                  if (finalKB <= targetKB || i === passes.length - 1) {
+                    cb(dataUrl, finalKB);
+                  } else {
+                    i++;
+                    next();
+                  }
+                };
+                r.readAsDataURL(blob);
+              },
+              'image/jpeg',
+              quality
+            );
+          }
+          next();
+        };
+        img.src = src;
+      }
+
+      /* ---------- Exportar catálogo ---------- */
+      function exportCatalog() {
+        const blob = new Blob([JSON.stringify(products, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `avilea-catalogo-${Date.now()}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('Catálogo exportado');
+      }
+
+      /* ---------- Tasa USD → MN (Supabase via /api/admin/settings/usd-rate) ---------- */
+      async function refreshUsdRateDisplay() {
+        const current = document.getElementById('usdRateCurrent');
+        if (!current) return;
+        try {
+          const data = await apiGet<{ rate: number | null }>(
+            '/api/admin/settings/usd-rate'
+          );
+          if (data.rate && data.rate > 0) {
+            current.textContent = `${fmtPrice(data.rate)} MN`;
+            current.classList.add('is-set');
+          } else {
+            current.textContent = 'Sin definir';
+            current.classList.remove('is-set');
+          }
+        } catch {
+          current.textContent = 'Sin definir';
+          current.classList.remove('is-set');
+        }
+      }
+
+      function setupUsdRate() {
+        const input = document.getElementById('usdRateInput') as HTMLInputElement | null;
+        const saveBtn = document.getElementById('usdRateSave');
+        if (!input || !saveBtn) return;
+
+        refreshUsdRateDisplay();
+
+        const onSave = async () => {
+          const value = parseFloat(input.value);
+          if (!Number.isFinite(value) || value <= 0) {
+            toast('Ingresa una tasa válida mayor a 0', 'error');
+            input.focus();
+            return;
+          }
+          saveBtn.setAttribute('disabled', 'true');
+          try {
+            await apiSend<{ ok: true; rate: number }>(
+              '/api/admin/settings/usd-rate',
+              'PUT',
+              { rate: value }
+            );
+            await refreshUsdRateDisplay();
+            input.value = '';
+            toast(`Tasa guardada: 1 USD = ${fmtPrice(value)} MN`);
+          } catch (e) {
+            toast(
+              'Error al guardar la tasa: ' +
+                (e instanceof Error ? e.message : ''),
+              'error'
+            );
+          } finally {
+            saveBtn.removeAttribute('disabled');
+          }
+        };
+
+        saveBtn.addEventListener('click', onSave);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onSave();
+          }
+        });
+      }
+
+      /* ---------- Campo ID (mostrar/ocultar + auto-sugerencia) ---------- */
+      function syncIdField() {
+        const catEl = document.getElementById('pCategory') as HTMLSelectElement | null;
+        const fieldEl = document.getElementById('pIdField');
+        const autoHint = document.getElementById('pIdAutoHint');
+        const cat = catEl?.value ?? '';
+        const needs = categoryNeedsManualId(cat);
+        if (fieldEl) fieldEl.hidden = !needs;
+        if (autoHint) autoHint.hidden = needs;
+        if (needs) {
+          const idEl = document.getElementById('pId') as HTMLInputElement | null;
+          idEl?.focus();
+        }
+      }
+
+      function setupIdField() {
+        const nameEl = document.getElementById('pName') as HTMLInputElement | null;
+        const catEl = document.getElementById('pCategory') as HTMLSelectElement | null;
+        const idEl = document.getElementById('pId') as HTMLInputElement | null;
+        if (!nameEl || !catEl || !idEl) return;
+
+        // Mostrar/ocultar al cambiar categoría.
+        catEl.addEventListener('change', syncIdField);
+
+        // Auto-sugerir slug desde el nombre SOLO mientras el admin no haya
+        // tocado el ID (así no pisamos lo que tipeó).
+        let idTouched = false;
+        idEl.addEventListener('input', () => {
+          idTouched = true;
+          idEl.value = idEl.value.toLowerCase();
+        });
+        nameEl.addEventListener('input', () => {
+          if (!idTouched) {
+            idEl.value = slugify(nameEl.value);
+          }
+        });
+
+        syncIdField();
+      }
+
+      /* ---------- Bind events ---------- */
+      function bindEvents() {
+        document.querySelectorAll<HTMLAnchorElement>('.admin-link[data-view]').forEach((link) => {
+          link.addEventListener('click', (e) => {
+            e.preventDefault();
+            switchView(link.dataset.view!);
+          });
+        });
+
+        document.querySelectorAll<HTMLElement>('[data-go]').forEach((el) => {
+          el.addEventListener('click', (e) => {
+            e.preventDefault();
+            const target = el.dataset.go;
+            if (el.classList.contains('qa') && target === 'productos') {
+              const txt = el.textContent || '';
+              if (txt.includes('Exportar')) {
+                exportCatalog();
+                return;
+              }
+            }
+            if (target) switchView(target);
+          });
+        });
+
+        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+          await signOutBrowser();
+          window.location.replace('/admin/login');
+        });
+
+        document.getElementById('sidebarToggle')?.addEventListener('click', (e) => {
+          e.stopPropagation();
+          document.getElementById('adminShell')?.classList.toggle('menu-open');
+        });
+        document.querySelector('.admin-main')?.addEventListener('click', () => {
+          document.getElementById('adminShell')?.classList.remove('menu-open');
+        });
+
+        document.getElementById('searchProduct')?.addEventListener('input', renderTable);
+        document.getElementById('filterCategory')?.addEventListener('change', renderTable);
+
+        const form = document.getElementById('productForm');
+        form?.addEventListener('submit', onCreateProduct as unknown as EventListener);
+        document.getElementById('cancelBtn')?.addEventListener('click', () => {
+          resetForm();
+          switchView('dashboard');
+        });
+
+        // Posts
+        document.getElementById('searchPost')?.addEventListener('input', renderPostsTable);
+        document.getElementById('filterPostCategory')?.addEventListener('change', renderPostsTable);
+
+        const postForm = document.getElementById('postForm');
+        postForm?.addEventListener('submit', onCreatePost as unknown as EventListener);
+        document.getElementById('postCancelBtn')?.addEventListener('click', () => {
+          resetPostForm();
+          switchView('blog');
+        });
+
+        setupUpload();
+        setupUsdRate();
+        setupIdField();
+        setupPostUpload();
+      }
+
+      /* ---------- Init ---------- */
+      await Promise.all([loadProducts(), loadPosts()]);
+      renderAll();
+      bindEvents();
+    </script>
+  </body>
+</html>

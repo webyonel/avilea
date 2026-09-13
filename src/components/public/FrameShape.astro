@@ -1,0 +1,16 @@
+---
+// src/components/public/FrameShape.astro
+// Renderiza un SVG según la forma del producto. Solo se usa cuando NO hay imagen.
+import type { Shape } from '../../lib/catalog';
+import { renderShape } from '../../lib/svgShapes';
+
+interface Props {
+  shape: Shape;
+  color?: string;
+}
+
+const { shape, color = '#1c4d6e' } = Astro.props;
+const svg = renderShape(shape, color);
+---
+
+<Fragment set:html={svg} />

@@ -1,0 +1,103 @@
+---
+// src/layouts/Layout.astro
+// Shell del sitio público: head, fuentes, Navbar, Footer, WA float.
+// Incluye scripts globales (nav scroll, mobile menu, smooth scroll, reveal).
+
+import '../styles/styles.css';
+import Navbar from '../components/public/Navbar.astro';
+import Footer from '../components/public/Footer.astro';
+import WhatsAppFloat from '../components/public/WhatsAppFloat.astro';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Avilea · Óptica y Visión',
+  description = 'Avilea - Tienda oftalmológica en Ciego de Ávila. Armaduras graduadas, lentes de contacto y lentes de sol. Calidad óptica al alcance de todos.',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/webp" href="/logo.webp" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <Navbar />
+    <main>
+      <slot />
+    </main>
+    <Footer />
+    <WhatsAppFloat />
+
+    <script>
+      // Navbar: agrega .scrolled al pasar de 24px.
+      const navbar = document.getElementById('navbar');
+      if (navbar) {
+        const onScroll = () => {
+          if (window.scrollY > 24) navbar.classList.add('scrolled');
+          else navbar.classList.remove('scrolled');
+        };
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+      }
+
+      // Mobile menu: toggle y cerrar al clickar un link.
+      const toggle = document.getElementById('navToggle');
+      if (toggle && navbar) {
+        toggle.addEventListener('click', () => navbar.classList.toggle('menu-open'));
+        document.querySelectorAll<HTMLAnchorElement>('.nav-links a').forEach((a) => {
+          a.addEventListener('click', () => navbar.classList.remove('menu-open'));
+        });
+      }
+
+      // Smooth scroll para anchors.
+      document.querySelectorAll<HTMLAnchorElement>('a[href^="#"]').forEach((a) => {
+        a.addEventListener('click', (e) => {
+          const id = a.getAttribute('href');
+          if (!id || id.length <= 1) return;
+          const target = document.querySelector(id);
+          if (target) {
+            e.preventDefault();
+            const top = (target as HTMLElement).getBoundingClientRect().top + window.scrollY - 76;
+            window.scrollTo({ top, behavior: 'smooth' });
+          }
+        });
+      });
+
+      // Reveal animations. Acepta tanto las clases existentes (legacy)
+      // como cualquier elemento con [data-reveal] — usado por componentes
+      // nuevos (cards del blog, items de galería, etc.) sin tener que tocar
+      // este selector central.
+      const els = document.querySelectorAll(
+        '.info-row, .map-card, .section-head, .product-card, [data-reveal]',
+      );
+      els.forEach((el) => el.classList.add('reveal'));
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('in');
+                io.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.12 }
+        );
+        els.forEach((el) => io.observe(el));
+      } else {
+        els.forEach((el) => el.classList.add('in'));
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,286 @@
+---
+// src/components/public/PostModal.astro
+// Modal fullscreen para abrir un post del blog. Sin props: la info se
+// popula por JS al disparar el evento `post:open` desde una card.
+// Mismo lenguaje visual que el lightbox de Gallery.astro (backdrop
+// blur, panel centrado, X arriba a la derecha, scroll interno).
+---
+<div class="post-modal" id="postModal" hidden role="dialog" aria-modal="true" aria-labelledby="postModalTitle">
+  <div class="post-modal__backdrop" data-post-modal-close aria-hidden="true"></div>
+  <div class="post-modal__panel" role="document">
+    <button type="button" class="post-modal__close" aria-label="Cerrar" data-post-modal-close>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="22" height="22">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+    <article class="post-modal__article">
+      <div class="post-modal__media">
+        <img class="post-modal__img" alt="" data-post-modal-img />
+        <span class="post-modal__chip" data-post-modal-chip></span>
+      </div>
+      <div class="post-modal__body">
+        <h2 class="post-modal__title" id="postModalTitle" data-post-modal-title></h2>
+        <p class="post-modal__meta">
+          <time class="post-modal__date" data-post-modal-date></time>
+          <span class="post-modal__author" data-post-modal-author></span>
+        </p>
+        <div class="post-modal__content" data-post-modal-content></div>
+      </div>
+    </article>
+  </div>
+</div>
+
+<style>
+  .post-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .post-modal[hidden] { display: none; }
+
+  .post-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 31, 92, 0.78);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    cursor: zoom-out;
+  }
+
+  .post-modal__panel {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 720px;
+    max-height: 92vh;
+    background: var(--white);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: post-modal-pop 0.28s var(--ease);
+  }
+  @keyframes post-modal-pop {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  .post-modal__close {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 2;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 0;
+    background: rgba(255, 255, 255, 0.95);
+    color: var(--ink);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .post-modal__close:hover { color: var(--accent); }
+
+  .post-modal__article {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  .post-modal__media {
+    position: relative;
+    aspect-ratio: 16 / 10;
+    background: var(--bg-alt);
+    flex-shrink: 0;
+  }
+  .post-modal__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  .post-modal__chip {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    padding: 4px 12px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--primary);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+  .post-modal__chip:empty { display: none; }
+
+  .post-modal__body {
+    padding: 24px 28px 32px;
+  }
+
+  .post-modal__title {
+    margin: 0 0 10px;
+    font-size: 26px;
+    line-height: 1.2;
+    font-weight: 800;
+    color: var(--ink);
+  }
+
+  .post-modal__meta {
+    margin: 0 0 20px;
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    font-weight: 600;
+  }
+  .post-modal__meta:empty { display: none; }
+  .post-modal__author:not(:empty)::before {
+    content: '·';
+    margin-right: 8px;
+  }
+
+  /* Cuerpo del artículo (markdown renderizado en server-side). */
+  .post-modal__content {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--ink-soft);
+  }
+  .post-modal__content :global(h2) {
+    margin: 28px 0 12px;
+    font-size: 20px;
+    font-weight: 800;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  .post-modal__content :global(h2:first-child) { margin-top: 0; }
+  .post-modal__content :global(h3) {
+    margin: 22px 0 10px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .post-modal__content :global(p) {
+    margin: 0 0 14px;
+  }
+  .post-modal__content :global(ul),
+  .post-modal__content :global(ol) {
+    margin: 0 0 14px;
+    padding-left: 22px;
+  }
+  .post-modal__content :global(li) { margin-bottom: 6px; }
+  .post-modal__content :global(strong) {
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .post-modal__content :global(em) { font-style: italic; }
+  .post-modal__content :global(a) {
+    color: var(--primary);
+    font-weight: 600;
+    text-decoration: underline;
+  }
+  .post-modal__content :global(a):hover { color: var(--accent-2); }
+  .post-modal__content :global(hr) {
+    margin: 24px 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+  }
+  .post-modal__content :global(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 13px;
+    background: var(--bg-alt);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .post-modal__content :global(blockquote) {
+    margin: 0 0 14px;
+    padding: 10px 16px;
+    border-left: 3px solid var(--primary);
+    background: var(--bg-alt);
+    color: var(--ink);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  }
+
+  @media (max-width: 720px) {
+    .post-modal__body { padding: 20px 20px 28px; }
+    .post-modal__title { font-size: 22px; }
+  }
+</style>
+
+<script>
+  type PostPayload = {
+    title: string;
+    contentHtml: string;
+    cover: string;
+    categoryLabel: string;
+    dateLabel: string;
+    author?: string;
+    coverAlt?: string;
+  };
+
+  const modal = document.getElementById('postModal');
+  if (modal) {
+    const img     = modal.querySelector<HTMLImageElement>('[data-post-modal-img]');
+    const chip    = modal.querySelector<HTMLElement>('[data-post-modal-chip]');
+    const title   = modal.querySelector<HTMLElement>('[data-post-modal-title]');
+    const date    = modal.querySelector<HTMLElement>('[data-post-modal-date]');
+    const author  = modal.querySelector<HTMLElement>('[data-post-modal-author]');
+    const content = modal.querySelector<HTMLElement>('[data-post-modal-content]');
+    const article = modal.querySelector<HTMLElement>('.post-modal__article');
+
+    function open(payload: PostPayload) {
+      if (!img || !title || !content || !chip || !date || !author) return;
+      img.src = payload.cover;
+      img.alt = payload.coverAlt ?? payload.title;
+      chip.textContent = payload.categoryLabel;
+      title.textContent = payload.title;
+      date.textContent  = payload.dateLabel;
+      author.textContent = payload.author ?? '';
+      // El HTML viene pre-renderizado por `marked` en el servidor.
+      // Por ahora el contenido solo lo escribe el seed del dev; cuando
+      // exista admin con input de usuario, sanitizar con DOMPurify acá.
+      content.innerHTML = payload.contentHtml;
+      modal!.hidden = false;
+      document.body.style.overflow = 'hidden';
+      // Reset scroll al tope del artículo al abrir uno nuevo.
+      if (article) article.scrollTop = 0;
+    }
+
+    function close() {
+      modal!.hidden = true;
+      if (img) img.src = '';
+      if (content) content.innerHTML = '';
+      document.body.style.overflow = '';
+    }
+
+    // Escucha el custom event disparado por PostCard.
+    document.addEventListener('post:open', (ev) => {
+      const e = ev as CustomEvent<PostPayload>;
+      if (e.detail) open(e.detail);
+    });
+
+    modal.querySelectorAll<HTMLElement>('[data-post-modal-close]').forEach((el) => {
+      el.addEventListener('click', close);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !modal!.hidden) close();
+    });
+  }
+</script>

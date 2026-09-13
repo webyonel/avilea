@@ -1,0 +1,37 @@
+---
+// src/components/public/Hero.astro
+// El botón "Mandar a hacer espejuelo" lleva a la sección #pedido
+// (mismo documento, no abre WhatsApp).
+---
+
+<section class="hero" id="inicio">
+  <div class="hero-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+  <div class="container hero-inner">
+    <div class="hero-content">
+      <span class="eyebrow">Óptica · Ciego de Ávila</span>
+      <h1 class="hero-title">
+        Tu visión, <em>nuestra</em> pasión.
+      </h1>
+      <p class="hero-subtitle">
+        Armaduras graduadas, lentes de contacto y accesorios ópticos con la calidad que tus ojos merecen. Soluciones visuales a la medida, en el corazón de Ciego de Ávila.
+      </p>
+      <div class="hero-cta">
+        <a href="#productos" class="btn btn-primary btn-lg">
+          Ver catálogo
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <a href="#pedido" class="btn btn-ghost btn-lg">
+          Mandar a hacer espejuelo
+        </a>
+      </div>
+    </div>
+
+    <div class="hero-mascot" aria-hidden="true">
+      <img src="/mascota_avilea.webp" alt="" width="1264" height="678" />
+    </div>
+  </div>
+</section>

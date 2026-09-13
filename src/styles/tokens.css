@@ -1,0 +1,50 @@
+/* src/styles/tokens.css
+ * Variables compartidas. Importado por styles.css.
+ * Paleta derivada del logo nuevo (azul oscuro, rojo, azul claro).
+ */
+
+:root {
+  /* Superficies */
+  --bg: #fafbfc;
+  --bg-alt: #eaf3fa;            /* tinte azul claro */
+  --line: #dbe6f1;              /* borde con leve tinte azul */
+
+  /* Tinta (textos) */
+  --ink: #0a1f5c;               /* azul oscuro = primary */
+  --ink-soft: #3a4a6b;
+  --ink-mute: #7a8a99;
+
+  /* Marca principal — azul oscuro (del logo) */
+  --primary: #0a1f5c;
+  --primary-2: #1a3589;         /* hover */
+  --primary-soft: #e3ecf8;      /* fondos suaves azul claro */
+
+  /* Acento — rojo (del logo) */
+  --accent: #e30613;
+  --accent-2: #b80510;          /* hover */
+
+  /* Azul claro del fondo del logo — usado como decoración */
+  --sky: #b3d4ec;
+
+  /* WhatsApp — verde de marca, no se toca */
+  --wa: #25d366;
+  --wa-2: #1ebe5d;
+
+  /* Otros */
+  --white: #ffffff;
+  --dark: #0a1f5c;              /* fondo de secciones oscuras = primary */
+
+  --shadow-sm: 0 1px 2px rgba(10, 31, 92, 0.06), 0 1px 3px rgba(10, 31, 92, 0.04);
+  --shadow-md: 0 4px 12px rgba(10, 31, 92, 0.06), 0 2px 6px rgba(10, 31, 92, 0.04);
+  --shadow-lg: 0 24px 48px rgba(10, 31, 92, 0.12), 0 8px 16px rgba(10, 31, 92, 0.08);
+  --shadow-xl: 0 32px 64px rgba(10, 31, 92, 0.18);
+
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 32px;
+
+  --container: 1200px;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}

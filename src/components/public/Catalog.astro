@@ -1,0 +1,59 @@
+---
+// src/components/public/Catalog.astro
+import type { Product, Category } from '../../lib/catalog';
+import { CATEGORIES, CATEGORY_LABEL } from '../../lib/catalog';
+import ProductCard from './ProductCard.astro';
+
+interface Props {
+  products: Product[];
+}
+
+const { products } = Astro.props;
+
+// Chips de filtro: "Todos" + cada categoría
+const filters: Array<{ value: 'all' | Category; label: string }> = [
+  { value: 'all', label: 'Todos' },
+  ...CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] })),
+];
+---
+
+<section class="section section-alt" id="productos">
+  <div class="container">
+    <div class="section-head">
+      <span class="eyebrow">Catálogo</span>
+      <h2 class="section-title">Nuestros <em>productos</em></h2>
+      <p class="section-sub">Modelos seleccionados para cada estilo y graduación. Todos nuestros precios incluyen cristales monofocales.</p>
+    </div>
+
+    <div class="filters" role="tablist">
+      {filters.map((f) => (
+        <button
+          class={`filter${f.value === 'all' ? ' active' : ''}`}
+          data-filter={f.value}
+          role="tab"
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+
+    <div class="catalog" id="catalog">
+      {products.map((p) => <ProductCard product={p} />)}
+    </div>
+  </div>
+</section>
+
+<script>
+  // Filtros client-side: muestra/oculta cards según data-cat.
+  document.querySelectorAll<HTMLButtonElement>('.filter').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.filter ?? 'all';
+      document.querySelectorAll<HTMLElement>('#catalog .product-card').forEach((card) => {
+        const cat = card.dataset.cat ?? '';
+        card.style.display = filter === 'all' || cat === filter ? '' : 'none';
+      });
+    });
+  });
+</script>

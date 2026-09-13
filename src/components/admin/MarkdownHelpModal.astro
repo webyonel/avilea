@@ -1,0 +1,305 @@
+---
+// src/components/admin/MarkdownHelpModal.astro
+// Modal de ayuda para el editor de publicaciones del blog.
+// Se abre con click en el botón "?" junto al label "Contenido (markdown)".
+// Sin props. La lógica vive en el <script> de este componente.
+---
+<div class="md-help" id="mdHelp" hidden role="dialog" aria-modal="true" aria-labelledby="mdHelpTitle">
+  <div class="md-help__backdrop" data-md-help-close aria-hidden="true"></div>
+  <div class="md-help__panel" role="document">
+    <header class="md-help__head">
+      <div>
+        <h3 id="mdHelpTitle">Guía rápida de Markdown</h3>
+        <p>Todo lo que necesitás para escribir un artículo del blog.</p>
+      </div>
+      <button type="button" class="md-help__close" aria-label="Cerrar" data-md-help-close>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </header>
+
+    <div class="md-help__body">
+      <!-- Títulos -->
+      <section class="md-help__section">
+        <h4>Títulos</h4>
+        <pre class="md-help__code"><code>## Título de sección
+### Subsección
+# Título principal</code></pre>
+        <p class="md-help__hint">Usá <code>##</code> (h2) para las secciones principales y <code>###</code> (h3) para subsecciones. Reservá <code>#</code> (h1) solo para el título del artículo.</p>
+      </section>
+
+      <!-- Énfasis -->
+      <section class="md-help__section">
+        <h4>Énfasis</h4>
+        <pre class="md-help__code"><code>**negrita**
+*cursiva*
+***negrita y cursiva***</code></pre>
+      </section>
+
+      <!-- Enlaces -->
+      <section class="md-help__section">
+        <h4>Enlaces</h4>
+        <pre class="md-help__code"><code>[texto visible](https://url.com)</code></pre>
+        <p class="md-help__hint">Si querés que se abra en otra pestaña, el sitio público lo hace automáticamente para URLs externas.</p>
+      </section>
+
+      <!-- Redes sociales -->
+      <section class="md-help__section md-help__section-tip">
+        <h4>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          Enlaces a redes sociales
+        </h4>
+        <pre class="md-help__code"><code>Seguinos en [Instagram](https://instagram.com/avilea).
+
+Escribinos por [WhatsApp](https://wa.me/5354519124).
+
+Visitá nuestro [Facebook](https://facebook.com/Avilea).</code></pre>
+      </section>
+
+      <!-- Listas -->
+      <section class="md-help__section">
+        <h4>Listas</h4>
+        <pre class="md-help__code"><code>- Primer ítem
+- Segundo ítem
+  - Sub-ítem (2 espacios)
+
+1. Primer paso
+2. Segundo paso
+3. Tercer paso</code></pre>
+      </section>
+
+      <!-- Citas -->
+      <section class="md-help__section">
+        <h4>Citas</h4>
+        <pre class="md-help__code"><code>&gt; Esto es una cita destacada.
+&gt; Puede tener varias líneas.</code></pre>
+      </section>
+
+      <!-- Código -->
+      <section class="md-help__section">
+        <h4>Código</h4>
+        <pre class="md-help__code"><code>Usá `código en línea` con backticks.
+
+Para bloques de código:
+```lenguaje
+tu código acá
+```</code></pre>
+      </section>
+
+      <!-- Imágenes -->
+      <section class="md-help__section">
+        <h4>Imágenes</h4>
+        <pre class="md-help__code"><code>![texto alternativo](https://url-de-imagen.jpg)</code></pre>
+        <p class="md-help__hint">El <em>texto alternativo</em> se muestra si la imagen no carga y ayuda a la accesibilidad.</p>
+      </section>
+
+      <!-- Línea horizontal -->
+      <section class="md-help__section">
+        <h4>Separador</h4>
+        <pre class="md-help__code"><code>---</code></pre>
+      </section>
+
+      <!-- Párrafos -->
+      <section class="md-help__section">
+        <h4>Párrafos y saltos de línea</h4>
+        <p class="md-help__hint">Dejá una línea en blanco entre párrafos para separarlos. Una sola línea nueva no genera un salto visual.</p>
+      </section>
+    </div>
+
+    <footer class="md-help__foot">
+      <button type="button" class="btn btn-primary" data-md-help-close>Entendido</button>
+    </footer>
+  </div>
+</div>
+
+<style>
+  .md-help {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .md-help[hidden] { display: none; }
+
+  .md-help__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 31, 92, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .md-help__panel {
+    position: relative;
+    width: 100%;
+    max-width: 680px;
+    max-height: 88vh;
+    background: var(--white, #fff);
+    border-radius: 14px;
+    box-shadow: 0 20px 60px rgba(10, 31, 92, 0.25);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: mdHelpIn .2s var(--ease);
+  }
+  @keyframes mdHelpIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .md-help__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--line, #dbe6f1);
+  }
+  .md-help__head h3 {
+    margin: 0;
+    font-size: 18px;
+    color: var(--ink, #0a1f5c);
+  }
+  .md-help__head p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--ink-mute, #6b7a90);
+  }
+
+  .md-help__close {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: transparent;
+    color: var(--ink-mute, #6b7a90);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background .15s var(--ease), color .15s var(--ease);
+  }
+  .md-help__close:hover {
+    background: var(--bg-alt, #f1f5f9);
+    color: var(--accent, #e30613);
+  }
+  .md-help__close svg { width: 18px; height: 18px; }
+
+  .md-help__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .md-help__section h4 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--primary, #0a1f5c);
+  }
+  .md-help__section h4 svg {
+    width: 16px;
+    height: 16px;
+    color: var(--primary, #0a1f5c);
+  }
+
+  .md-help__code {
+    margin: 0;
+    padding: 10px 12px;
+    background: var(--bg-alt, #f1f5f9);
+    border: 1px solid var(--line, #dbe6f1);
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--ink, #0a1f5c);
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .md-help__code code { font: inherit; background: transparent; padding: 0; color: inherit; }
+
+  .md-help__hint {
+    margin: 8px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-soft, #4a5b75);
+    line-height: 1.5;
+  }
+  .md-help__hint code,
+  .md-help__hint em {
+    font-style: normal;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    background: var(--bg-alt, #f1f5f9);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--primary, #0a1f5c);
+  }
+
+  .md-help__section-tip {
+    padding: 12px 14px;
+    background: rgba(227, 236, 248, 0.4);
+    border: 1px dashed var(--primary, #0a1f5c);
+    border-radius: 10px;
+  }
+
+  .md-help__foot {
+    padding: 14px 24px 20px;
+    display: flex;
+    justify-content: flex-end;
+    border-top: 1px solid var(--line, #dbe6f1);
+    background: var(--white, #fff);
+  }
+
+  @media (max-width: 600px) {
+    .md-help { padding: 0; }
+    .md-help__panel {
+      max-width: 100%;
+      max-height: 100vh;
+      border-radius: 0;
+    }
+  }
+</style>
+
+<script>
+  const modal = document.getElementById('mdHelp');
+  const openBtns = document.querySelectorAll<HTMLButtonElement>('[data-md-help-open]');
+  const closeEls = modal?.querySelectorAll<HTMLElement>('[data-md-help-close]');
+
+  function openMdHelp() {
+    if (!modal) return;
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    modal.querySelector<HTMLButtonElement>('.md-help__close')?.focus();
+  }
+
+  function closeMdHelp() {
+    if (!modal) return;
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  openBtns.forEach((b) => b.addEventListener('click', openMdHelp));
+  closeEls?.forEach((el) => el.addEventListener('click', closeMdHelp));
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && !modal.hidden) closeMdHelp();
+  });
+</script>

@@ -1,0 +1,396 @@
+---
+// src/pages/sobre-nosotros.astro
+// Página pública "Sobre Nosotros". Mismo sistema de diseño que el resto del
+// sitio: tokens de colors.css, clases .container / .section / .section-head,
+// .btn / .btn-primary; cada bloque lleva <style> scoped para sus piezas únicas.
+import { marked } from 'marked';
+import Layout from '../layouts/Layout.astro';
+import Gallery from '../components/public/Gallery.astro';
+import PostCard from '../components/public/PostCard.astro';
+import PostModal from '../components/public/PostModal.astro';
+import { fetchPosts } from '../lib/supabase-posts';
+import type { Post } from '../lib/posts';
+import { defaultWaLink } from '../lib/whatsapp';
+
+const ctaHref = defaultWaLink('Hola Avilea, me gustaría conocer más sobre ustedes.');
+
+// Posts del blog: server-side desde Supabase. Si la query falla, mostramos
+// un bloque de error visible (NO fallback a DEFAULT_POSTS, mismo criterio
+// que `index.astro` con el catálogo).
+type PostWithHtml = Post & { contentHtml: string };
+let posts: PostWithHtml[] = [];
+let loadError: string | null = null;
+
+try {
+  const fetched = await fetchPosts();
+  posts = fetched.map((p) => ({ ...p, contentHtml: marked.parse(p.content) as string }));
+} catch (e) {
+  loadError = e instanceof Error ? e.message : 'Error desconocido al cargar el blog.';
+  console.error('[sobre-nosotros] fetchPosts failed:', loadError);
+}
+
+// Items de la galería. Fotos reales de los locales (interior y fachada).
+const galleryItems = [
+  { src: '/img/galeria-01-mostrador.jpg',         alt: 'Mostrador del local con espejuelos exhibidos' },
+  { src: '/img/galeria-02-interior.jpg',          alt: 'Interior del local con ambiente y zona de atención' },
+  { src: '/img/galeria-03-expositor.jpg',         alt: 'Expositor cilíndrico con armaduras graduadas' },
+  { src: '/img/galeria-04-banquetas.jpg',         alt: 'Pared de armaduras con banquetas para clientes' },
+  { src: '/img/galeria-05-vitrina.jpg',           alt: 'Vitrina con accesorios y monturas' },
+  { src: '/img/galeria-06-entrada.jpg',           alt: 'Entrada del local con standee de servicios' },
+  { src: '/img/galeria-07-fachada-optica.jpg',    alt: 'Fachada con letrero ÓPTICA' },
+  { src: '/img/galeria-08-fachada-exterior.jpg',  alt: 'Exterior del local' },
+];
+---
+
+<Layout
+  title="Sobre Nosotros · Avilea Óptica"
+  description="Avilea es una óptica cubana con locales en Ciego de Ávila, Ciro Redondo y Morón. Conocé nuestra visión, nuestra galería y nuestro blog."
+>
+  <!-- ====== Hero ====== -->
+  <section class="section section-hero" id="sobre-nosotros">
+    <div class="container">
+      <div class="section-head about-head" data-reveal>
+        <span class="eyebrow">Sobre nosotros</span>
+        <h1 class="section-title">Cuidamos tu visión, <em>contamos</em> tu historia</h1>
+        <p class="section-sub">
+          Avilea es una óptica familiar con tres locales en Cuba. Hacemos armaduras graduadas a medida, te ayudamos a elegir la tuya y te acompañamos después de la compra.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== Visión ====== -->
+  <section class="section section-alt" id="vision">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Nuestra visión</span>
+        <h2 class="section-title">Ver bien debería estar <em>al alcance</em> de todos</h2>
+        <p class="section-sub">
+          Combinamos atención personalizada, lentes graduadas a medida y un catálogo cuidadosamente seleccionado para ayudarte a encontrar la armadura perfecta.
+        </p>
+      </div>
+
+      <div class="vision-grid">
+        <div class="vision-prose" data-reveal>
+          <h3 class="vision-prose__title">Lo que nos mueve</h3>
+          <p>
+            Cada receta es única. Detrás de cada graduación hay una persona con su ritmo, su trabajo y sus hábitos — y eso cambia completamente qué armadura y qué cristal le sirven. Por eso en Avilea no vendemos “un par de espejuelos”: te escuchamos, te orientamos y armamos lo que necesitás.
+          </p>
+          <p>
+            Trabajamos con proveedores locales de cristales y armaduras, montamos en laboratorio propio y ajustamos sin costo cada entrega. Si algo no queda como esperabas, volvés y lo resolvemos.
+          </p>
+          <h3 class="vision-prose__title">Cómo trabajamos</h3>
+          <ul class="vision-list">
+            <li><strong>Asesoramiento sin apuro.</strong> Te explicamos cada material, tratamiento y distancia focal antes de decidir.</li>
+            <li><strong>Hecho a medida.</strong> Cada par se monta según tu receta: esfera, cilindro, eje, prisma, adición.</li>
+            <li><strong>Acompañamiento post-venta.</strong> Ajustes, limpieza y mantenimiento siempre incluidos.</li>
+          </ul>
+        </div>
+
+        <div class="vision-cards">
+          <div class="vision-card" data-reveal>
+            <div class="vision-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/>
+              </svg>
+            </div>
+            <h4 class="vision-card__title">Atención personal</h4>
+            <p class="vision-card__text">Te conocemos, te llamamos por tu nombre y te avisamos cuando tu pedido está listo.</p>
+          </div>
+          <div class="vision-card" data-reveal>
+            <div class="vision-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="7.5" cy="13.5" r="3.5"/>
+                <circle cx="16.5" cy="13.5" r="3.5"/>
+                <line x1="11" y1="13.5" x2="13" y2="13.5"/>
+                <path d="M2.5 7.5v11a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2L17 7.5 15 5.5 9 5.5 7 7.5 4.5 7.5a2 2 0 0 0-2 2z"/>
+              </svg>
+            </div>
+            <h4 class="vision-card__title">Cristales a medida</h4>
+            <p class="vision-card__text">Material, tratamientos y distancias focales elegibles según tu receta y tu día a día.</p>
+          </div>
+          <div class="vision-card" data-reveal>
+            <div class="vision-card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <h4 class="vision-card__title">Compromiso real</h4>
+            <p class="vision-card__text">Si algo no te queda como esperabas, volvés al local y lo resolvemos — sin costo extra.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== Galería ====== -->
+  <section class="section" id="galeria">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Galería</span>
+        <h2 class="section-title">Nuestros <em>locales</em> y nuestro día a día</h2>
+        <p class="section-sub">Una mirada al interior de Avilea y al equipo que te atiende cada día.</p>
+      </div>
+      <Gallery items={galleryItems} />
+    </div>
+  </section>
+
+  <!-- ====== Blog ====== -->
+  <section class="section section-alt" id="blog">
+    <div class="container">
+      <div class="section-head" data-reveal>
+        <span class="eyebrow">Blog</span>
+        <h2 class="section-title">Consejos, <em>novedades</em> y miradas</h2>
+        <p class="section-sub">Lo que aprendemos cada día sobre gafas, cristales y cuidado visual.</p>
+      </div>
+
+      {loadError ? (
+        <div class="post-error" role="alert">
+          <div class="post-error__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+          </div>
+          <h3 class="post-error__title">No pudimos cargar el blog</h3>
+          <p class="post-error__msg">
+            Estamos teniendo problemas para conectarnos con el servidor. Por favor intentá de nuevo en unos minutos.
+          </p>
+          <p class="post-error__detail">Detalle técnico: {loadError}</p>
+        </div>
+      ) : (
+        <>
+          <div class="post-grid">
+            {posts.map((post) => (
+              <PostCard post={post} />
+            ))}
+          </div>
+
+          <p class="about-blog-note" data-reveal>
+            ¿Tenés un tema que te gustaría que cubramos?
+            <a href={defaultWaLink('Hola Avilea, me gustaría sugerir un tema para el blog.')} target="_blank" rel="noopener" class="about-blog-note__link">Sugerilo por WhatsApp</a>.
+          </p>
+        </>
+      )}
+    </div>
+  </section>
+
+  <!-- ====== CTA final ====== -->
+  <section class="section section-dark about-cta" id="contactanos">
+    <div class="container about-cta__inner">
+      <div data-reveal>
+        <h2 class="section-title about-cta__title">¿Te pasamos a buscar por el local?</h2>
+        <p class="section-sub about-cta__sub">
+          Estamos en Ciego de Ávila, Ciro Redondo y Morón. Escribinos y coordinamos una visita o un envío a medida.
+        </p>
+      </div>
+      <a href={ctaHref} class="btn btn-wa btn-lg" target="_blank" rel="noopener" data-reveal>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M.057 24l1.687-6.163a11.867 11.867 0 01-1.587-5.946C.16 5.335 5.495 0 12.05 0a11.817 11.817 0 018.413 3.488 11.824 11.824 0 013.48 8.414c-.003 6.557-5.338 11.892-11.893 11.892a11.9 11.9 0 01-5.688-1.448L.057 24zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+        Hablar por WhatsApp
+      </a>
+    </div>
+  </section>
+
+  <!-- Modal único que se popula por JS al click en una card. -->
+  <PostModal />
+</Layout>
+
+<style>
+  /* Hero */
+  .section-hero {
+    padding: 80px 0 40px;
+    text-align: center;
+    background: linear-gradient(180deg, var(--bg-alt) 0%, var(--white) 100%);
+  }
+  .about-head {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  /* Visión: 2 columnas en desktop, 1 en móvil */
+  .vision-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 40px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  .vision-prose {
+    max-width: 560px;
+  }
+  .vision-prose__title {
+    margin: 24px 0 12px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .vision-prose__title:first-child { margin-top: 0; }
+  .vision-prose p {
+    margin: 0 0 12px;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--ink-soft);
+  }
+  .vision-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .vision-list li {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    padding-left: 18px;
+    position: relative;
+  }
+  .vision-list li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+  .vision-list strong { color: var(--ink); font-weight: 700; }
+
+  .vision-cards {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    align-content: start;
+  }
+  .vision-card {
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.25s var(--ease), transform 0.25s var(--ease);
+  }
+  .vision-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-2px);
+  }
+  .vision-card__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius);
+    background: var(--primary-soft);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .vision-card__icon svg { width: 22px; height: 22px; }
+  .vision-card__title {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .vision-card__text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+
+  /* Blog */
+  .post-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  /* Error de carga del blog (mismo lenguaje visual que .catalog-error en index.astro). */
+  .post-error {
+    max-width: 560px;
+    margin: 24px auto;
+    padding: 32px 28px;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    text-align: center;
+  }
+  .post-error__icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 16px;
+    border-radius: 50%;
+    background: #fef2f2;
+    color: #b91c1c;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .post-error__icon svg { width: 28px; height: 28px; }
+  .post-error__title {
+    margin: 0 0 8px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .post-error__msg {
+    margin: 0 0 12px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+  .post-error__detail {
+    margin: 0;
+    font-size: 12px;
+    color: var(--ink-mute);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .about-blog-note {
+    margin: 32px 0 0;
+    text-align: center;
+    font-size: 14px;
+    color: var(--ink-mute);
+  }
+  .about-blog-note__link {
+    color: var(--primary);
+    font-weight: 700;
+    text-decoration: underline;
+    margin-left: 4px;
+  }
+  .about-blog-note__link:hover { color: var(--accent-2); }
+
+  /* CTA final */
+  .about-cta {
+    background: var(--ink);
+    color: var(--white);
+    padding: 64px 0;
+  }
+  .about-cta__inner {
+    max-width: 880px;
+    margin: 0 auto;
+    text-align: center;
+  }
+  .about-cta__title {
+    color: var(--white);
+    margin: 0 0 12px;
+  }
+  .about-cta__sub {
+    color: rgba(255, 255, 255, 0.85);
+    margin: 0 0 28px;
+  }
+  .about-cta .btn-wa { margin: 0 auto; }
+
+  /* Responsive */
+  @media (min-width: 720px) {
+    .vision-cards { grid-template-columns: repeat(3, 1fr); }
+    .post-grid   { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (min-width: 980px) {
+    .section-hero { padding: 100px 0 56px; }
+    .vision-grid { grid-template-columns: 1.2fr 1fr; gap: 56px; }
+    .post-grid   { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
