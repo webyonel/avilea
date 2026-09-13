@@ -1,12 +1,9 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
 
-import node from '@astrojs/node';
-
 // https://astro.build/config
+// Static export para deploy en GitHub Pages (sin SSR).
+// El admin usa Supabase Auth + RLS directamente desde el browser.
 export default defineConfig({
-  output: 'server',
-  adapter: node({
-    mode: 'standalone'
-  })
+  output: 'static',
 });

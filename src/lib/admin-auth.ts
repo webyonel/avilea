@@ -1,15 +1,20 @@
 // src/lib/admin-auth.ts
-// Auth admin · Fase 2 (Supabase Auth) con Bearer tokens.
+// Auth admin · Supabase Auth desde el browser (deploy en GitHub Pages).
+//
+// Con output:'static' no hay server, así que NO hay verificación de
+// Bearer tokens ni middleware. Toda la protección se hace via Supabase
+// RLS: las policies de las tablas filtran por `auth.role() = 'authenticated'`,
+// y el cliente anon solo puede escribir si hay sesión activa.
 //
 // FLUJO:
-//   1. BROWSER: `supabaseBrowser` maneja login/logout. Supabase guarda
-//      la sesión en localStorage.
-//   2. Al hacer fetch al /api/admin/*, el cliente mete el access_token
-//      en `Authorization: Bearer <token>` (vía `getAccessToken()`).
-//   3. SERVER (endpoints): extrae el Bearer y llama `verifyBearerToken`,
-//      que verifica contra Supabase usando el cliente anon.
-//   4. El middleware chequea el header Authorization como primera barrera
-//      rápida antes de dejar pasar al endpoint (que hace la verificación real).
+//   1. Login: `signInBrowser(email, password)` usa supabaseBrowser.auth.
+//      Supabase guarda la sesión en localStorage del browser.
+//   2. Las llamadas a Supabase desde el cliente llevan automáticamente
+//      el token de sesión en cada request → RLS decide qué puede hacer.
+//   3. Logout: `signOutBrowser()` borra la sesión local.
+//
+// El admin/index.astro chequea la sesión al cargar y redirige a /admin/login
+// si no hay user.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
@@ -21,7 +26,7 @@ function env(value: string | undefined, name: string): string {
   return value;
 }
 
-/** Cliente para el browser (login form, logout). Persiste sesión en localStorage. */
+/** Cliente para el browser. Persiste sesión en localStorage. */
 export const supabaseBrowser: SupabaseClient = createClient(
   env(url, 'PUBLIC_SUPABASE_URL'),
   env(anonKey, 'PUBLIC_SUPABASE_ANON_KEY'),
@@ -33,102 +38,6 @@ export const supabaseBrowser: SupabaseClient = createClient(
     },
   }
 );
-
-/** Cliente server-side. ( usa anon key — verifica Bearer tokens contra Supabase. */
-export const supabaseServer: SupabaseClient = createClient(
-  env(url, 'PUBLIC_SUPABASE_URL'),
-  env(anonKey, 'PUBLIC_SUPABASE_ANON_KEY'),
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  }
-);
-
-/* ============================================================
-   Browser-side helpers
-   ============================================================ */
-
-/** Devuelve el access_token de la sesión actual, o null si no hay. */
-export async function getAccessToken(): Promise<string | null> {
-  try {
-    const { data } = await supabaseBrowser.auth.getSession();
-    return data.session?.access_token ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/* ============================================================
-   Server-side helpers
-   ============================================================ */
-
-/** Extrae el Bearer token del header Authorization. */
-export function extractBearer(request: Request): string | null {
-  const auth = request.headers.get('authorization');
-  if (auth && auth.toLowerCase().startsWith('bearer ')) {
-    return auth.slice(7).trim() || null;
-  }
-  return null;
-}
-
-/**
- * Chequeo rápido de "hay sesión activa" para el middleware.
- * Solo verifica que exista la cookie de Supabase (`*-auth-token`). NO
- * valida el token — la verificación real la hace `requireAuth()` en cada
- * endpoint (que sí chequea el Bearer con Supabase).
- *
- * Lo usamos en el middleware como primera barrera rápida antes de dejar
- * pasar a la página /admin/*: si no hay cookie ni siquiera intentamos
- * cargar el layout del panel.
- */
-export function hasSessionCookie(request: Request): boolean {
-  const cookieHeader = request.headers.get('cookie') ?? '';
-  return cookieHeader.includes('-auth-token');
-}
-
-/** Verifica un access_token contra Supabase. Devuelve el user o null. */
-export async function verifyBearerToken(
-  token: string
-): Promise<{ id: string; email: string | null } | null> {
-  try {
-    const { data, error } = await supabaseServer.auth.getUser(token);
-    if (error || !data?.user) return null;
-    return { id: data.user.id, email: data.user.email ?? null };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Helper para endpoints: extrae Bearer, verifica, devuelve Response 401 si no
- * hay sesión válida. Si todo OK, devuelve el user.
- */
-export async function requireAuth(
-  request: Request
-): Promise<{ user: { id: string; email: string | null } } | { response: Response }> {
-  const token = extractBearer(request);
-  if (!token) {
-    return {
-      response: new Response(JSON.stringify({ error: 'No autenticado' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    };
-  }
-  const user = await verifyBearerToken(token);
-  if (!user) {
-    return {
-      response: new Response(JSON.stringify({ error: 'No autenticado' }), {
-        status: 401,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    };
-  }
-  return { user };
-}
 
 /* ============================================================
    Login / Logout (browser)

@@ -1,54 +1,35 @@
 // src/db/supabase.ts
-// Clientes Supabase · Fase 2.
+// Cliente Supabase para Fase 2 con deploy ESTÁTICO (GitHub Pages).
 //
-// Hay DOS clientes, ambos SSR (corren en el servidor):
+// Antes había dos clientes (anon + service_role). En estático no podemos
+// usar service_role desde el browser (sería público), así que se ELIMINA.
+// Toda la lógica de admin corre desde el cliente con `supabaseBrowser`
+// (definido en `src/lib/admin-auth.ts`) y depende de las RLS policies
+// que filtran por `auth.role() = 'authenticated'`.
 //
-// - `supabaseAnon`: usa la anon key. Respeta RLS. Usar para lecturas
-//   públicas del sitio y como base del server-client de auth
-//   (que pasa la sesión del usuario vía cookies).
-//
-// - `supabaseAdmin`: usa la service_role key. BYPASEA RLS. Úsalo SOLO
-//   dentro de endpoints API protegidos (/api/admin/**) para CRUD de
-//   productos. NUNCA importes este cliente desde código que pueda llegar
-//   al browser (componentes con `client:*`, `<script>` dentro de .astro,
-//   o rutas sin auth check).
-//
-// Las variables se leen con `import.meta.env.*` (Astro/Vite las expone
-// en SSR). Ver .env.example para los nombres exactos.
+// - `supabaseAnon`: anon key. Se usa en build-time (frontmatter de páginas)
+//   para hacer un snapshot del contenido al momento del deploy. Para data
+//   fresca en runtime, ver `supabaseBrowser` en `admin-auth.ts`.
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 const url = import.meta.env.PUBLIC_SUPABASE_URL as string | undefined;
 const anonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY as string | undefined;
-const serviceKey = import.meta.env.SUPABASE_SERVICE_ROLE_KEY as string | undefined;
 
 function assertEnv(value: string | undefined, name: string): string {
   if (!value) {
     throw new Error(
       `[supabase] Falta la variable de entorno ${name}. ` +
-      `Configurala en .env (ver .env.example).`
+        `Configurala en .env (ver .env.example).`
     );
   }
   return value;
 }
 
-/** Cliente con anon key. Respeta RLS. Para lecturas públicas y auth server-side. */
+/** Cliente con anon key. Respeta RLS. Se usa SOLO en build-time (frontmatter). */
 export const supabaseAnon: SupabaseClient = createClient(
-  assertEnv(url, 'SUPABASE_URL'),
-  assertEnv(anonKey, 'SUPABASE_ANON_KEY'),
-  {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  }
-);
-
-/** Cliente con service_role. BYPASEA RLS. SOLO server-side, en endpoints admin. */
-export const supabaseAdmin: SupabaseClient = createClient(
-  assertEnv(url, 'SUPABASE_URL'),
-  assertEnv(serviceKey, 'SUPABASE_SERVICE_ROLE_KEY'),
+  assertEnv(url, 'PUBLIC_SUPABASE_URL'),
+  assertEnv(anonKey, 'PUBLIC_SUPABASE_ANON_KEY'),
   {
     auth: {
       persistSession: false,

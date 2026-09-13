@@ -573,7 +573,6 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
       import {
         supabaseBrowser,
         signOutBrowser,
-        getAccessToken,
       } from '../../lib/admin-auth';
       import {
         CATEGORY_LABEL,
@@ -672,29 +671,36 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         );
       }
 
-      /* ---------- API helpers ---------- */
-      async function authHeaders(): Promise<Record<string, string>> {
-        const token = await getAccessToken();
-        return token ? { Authorization: `Bearer ${token}` } : {};
+      /* ---------- Supabase helpers (deploy estático: RLS protege las escrituras) ---------- */
+
+      /** Mapea fila snake_case de Supabase al shape de Product. */
+      function rowToProduct(row: any): Product {
+        return {
+          id: row.id,
+          name: row.name,
+          category: row.category as Category,
+          price: Number(row.price),
+          image: row.image,
+          shape: (row.shape ?? undefined) as Product['shape'],
+          color: row.color ?? undefined,
+        };
       }
 
-      async function apiGet<T>(url: string): Promise<T> {
-        const headers = await authHeaders();
-        const res = await fetch(url, { credentials: 'include', headers });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
-        return res.json();
-      }
-
-      async function apiSend<T>(url: string, method: string, body?: unknown): Promise<T> {
-        const headers = await authHeaders();
-        const res = await fetch(url, {
-          method,
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json', ...headers },
-          body: body ? JSON.stringify(body) : undefined,
-        });
-        if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error ?? `HTTP ${res.status}`);
-        return res.json();
+      /** Mapea fila snake_case de Supabase al shape de Post. */
+      function rowToPost(row: any): Post {
+        return {
+          id: row.id,
+          slug: row.slug,
+          title: row.title,
+          excerpt: row.excerpt,
+          content: row.content,
+          cover: row.cover,
+          category: row.category as Post['category'],
+          author: row.author ?? undefined,
+          date: (row.published_at ?? '').slice(0, 10),
+          is_published: row.is_published,
+          published_at: row.published_at,
+        };
       }
 
       /* ---------- Fallback thumb ---------- */
@@ -870,11 +876,15 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         });
       }
 
-      /* ---------- CRUD via API ---------- */
+      /* ---------- CRUD via Supabase (RLS protege las escrituras) ---------- */
       async function loadProducts(): Promise<void> {
         try {
-          const data = await apiGet<{ products: Product[] }>('/api/admin/products');
-          products = data.products;
+          const { data, error } = await supabaseBrowser
+            .from('products')
+            .select('*')
+            .order('created_at', { ascending: true });
+          if (error) throw error;
+          products = (data ?? []).map(rowToProduct);
         } catch (e) {
           toast('Error al cargar productos: ' + (e instanceof Error ? e.message : ''), 'error');
           products = [];
@@ -925,17 +935,20 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         }
 
         try {
-          const { product } = await apiSend<{ product: Product }>(
-            '/api/admin/products',
-            'POST',
-            {
-              ...(manualId ? { id: manualId } : {}),
-              name,
-              category,
-              price,
-              image: currentImage,
-            }
-          );
+          const insertRow = {
+            name,
+            category,
+            price,
+            image: currentImage,
+            ...(manualId ? { id: manualId } : {}),
+          };
+          const { data, error } = await supabaseBrowser
+            .from('products')
+            .insert(insertRow)
+            .select()
+            .single();
+          if (error) throw error;
+          const product = rowToProduct(data);
           products.push(product);
           renderAll();
           resetForm();
@@ -949,7 +962,11 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
       async function deleteProduct(id: string) {
         if (!confirm('¿Eliminar este producto?')) return;
         try {
-          await apiSend(`/api/admin/products/${encodeURIComponent(id)}`, 'DELETE');
+          const { error } = await supabaseBrowser
+            .from('products')
+            .delete()
+            .eq('id', id);
+          if (error) throw error;
           products = products.filter((p) => p.id !== id);
           renderAll();
           toast('Producto eliminado');
@@ -979,8 +996,12 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
 
       async function loadPosts(): Promise<void> {
         try {
-          const data = await apiGet<{ posts: Post[] }>('/api/admin/posts');
-          posts = data.posts;
+          const { data, error } = await supabaseBrowser
+            .from('posts')
+            .select('*')
+            .order('published_at', { ascending: false });
+          if (error) throw error;
+          posts = (data ?? []).map(rowToPost);
         } catch (e) {
           toast('Error al cargar publicaciones: ' + (e instanceof Error ? e.message : ''), 'error');
           posts = [];
@@ -1092,18 +1113,23 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         }
 
         try {
-          const { post } = await apiSend<{ post: Post }>(
-            '/api/admin/posts',
-            'POST',
-            {
-              title,
-              excerpt,
-              content,
-              cover: currentPostImage,
-              category,
-              is_published: true,
-            }
-          );
+          const slug = slugify(title);
+          const insertRow = {
+            slug,
+            title,
+            excerpt,
+            content,
+            cover: currentPostImage,
+            category,
+            is_published: true,
+          };
+          const { data, error } = await supabaseBrowser
+            .from('posts')
+            .insert(insertRow)
+            .select()
+            .single();
+          if (error) throw error;
+          const post = rowToPost(data);
           posts.unshift(post);
           renderAll();
           resetPostForm();
@@ -1119,7 +1145,11 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         const label = target ? `"${target.title}"` : 'esta publicación';
         if (!confirm(`¿Eliminar ${label}? Esta acción no se puede deshacer.`)) return;
         try {
-          await apiSend(`/api/admin/posts/${encodeURIComponent(id)}`, 'DELETE');
+          const { error } = await supabaseBrowser
+            .from('posts')
+            .delete()
+            .eq('id', id);
+          if (error) throw error;
           posts = posts.filter((p) => p.id !== id);
           renderAll();
           toast('Publicación eliminada');
@@ -1364,28 +1394,26 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         img.src = src;
       }
 
-      /* ---------- Exportar catálogo ---------- */
-      function exportCatalog() {
-        const blob = new Blob([JSON.stringify(products, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `avilea-catalogo-${Date.now()}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast('Catálogo exportado');
-      }
-
-      /* ---------- Tasa USD → MN (Supabase via /api/admin/settings/usd-rate) ---------- */
+      /* ---------- Tasa USD → MN (Supabase directo: tabla `settings`) ---------- */
       async function refreshUsdRateDisplay() {
         const current = document.getElementById('usdRateCurrent');
         if (!current) return;
         try {
-          const data = await apiGet<{ rate: number | null }>(
-            '/api/admin/settings/usd-rate'
-          );
-          if (data.rate && data.rate > 0) {
-            current.textContent = `${fmtPrice(data.rate)} MN`;
+          const { data, error } = await supabaseBrowser
+            .from('settings')
+            .select('value')
+            .eq('key', 'usd_rate')
+            .maybeSingle();
+          if (error) throw error;
+          const raw = data?.value;
+          const rate =
+            typeof raw === 'number'
+              ? raw
+              : typeof raw === 'string'
+                ? parseFloat(raw)
+                : NaN;
+          if (Number.isFinite(rate) && rate > 0) {
+            current.textContent = `${fmtPrice(rate)} MN`;
             current.classList.add('is-set');
           } else {
             current.textContent = 'Sin definir';
@@ -1413,11 +1441,10 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           }
           saveBtn.setAttribute('disabled', 'true');
           try {
-            await apiSend<{ ok: true; rate: number }>(
-              '/api/admin/settings/usd-rate',
-              'PUT',
-              { rate: value }
-            );
+            const { error } = await supabaseBrowser
+              .from('settings')
+              .upsert({ key: 'usd_rate', value });
+            if (error) throw error;
             await refreshUsdRateDisplay();
             input.value = '';
             toast(`Tasa guardada: 1 USD = ${fmtPrice(value)} MN`);
@@ -1494,13 +1521,6 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           el.addEventListener('click', (e) => {
             e.preventDefault();
             const target = el.dataset.go;
-            if (el.classList.contains('qa') && target === 'productos') {
-              const txt = el.textContent || '';
-              if (txt.includes('Exportar')) {
-                exportCatalog();
-                return;
-              }
-            }
             if (target) switchView(target);
           });
         });
