@@ -5,7 +5,9 @@
    (azul oscuro + rojo). Los colores semánticos
    (success/error, chips por categoría) se
    mantienen como literales.
-   ============================================= */
+   ============================================= 
+   
+   */
 
 @import './tokens.css';
 
