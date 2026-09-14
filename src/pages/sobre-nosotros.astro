@@ -30,15 +30,16 @@ try {
 }
 
 // Items de la galería. Fotos reales de los locales (interior y fachada).
+const galleryBase = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/`;
 const galleryItems = [
-  { src: '/img/galeria-01-mostrador.jpg',         alt: 'Mostrador del local con espejuelos exhibidos' },
-  { src: '/img/galeria-02-interior.jpg',          alt: 'Interior del local con ambiente y zona de atención' },
-  { src: '/img/galeria-03-expositor.jpg',         alt: 'Expositor cilíndrico con armaduras graduadas' },
-  { src: '/img/galeria-04-banquetas.jpg',         alt: 'Pared de armaduras con banquetas para clientes' },
-  { src: '/img/galeria-05-vitrina.jpg',           alt: 'Vitrina con accesorios y monturas' },
-  { src: '/img/galeria-06-entrada.jpg',           alt: 'Entrada del local con standee de servicios' },
-  { src: '/img/galeria-07-fachada-optica.jpg',    alt: 'Fachada con letrero ÓPTICA' },
-  { src: '/img/galeria-08-fachada-exterior.jpg',  alt: 'Exterior del local' },
+  { src: `${galleryBase}img/galeria-01-mostrador.jpg`,         alt: 'Mostrador del local con espejuelos exhibidos' },
+  { src: `${galleryBase}img/galeria-02-interior.jpg`,          alt: 'Interior del local con ambiente y zona de atención' },
+  { src: `${galleryBase}img/galeria-03-expositor.jpg`,         alt: 'Expositor cilíndrico con armaduras graduadas' },
+  { src: `${galleryBase}img/galeria-04-banquetas.jpg`,         alt: 'Pared de armaduras con banquetas para clientes' },
+  { src: `${galleryBase}img/galeria-05-vitrina.jpg`,           alt: 'Vitrina con accesorios y monturas' },
+  { src: `${galleryBase}img/galeria-06-entrada.jpg`,           alt: 'Entrada del local con standee de servicios' },
+  { src: `${galleryBase}img/galeria-07-fachada-optica.jpg`,    alt: 'Fachada con letrero ÓPTICA' },
+  { src: `${galleryBase}img/galeria-08-fachada-exterior.jpg`,  alt: 'Exterior del local' },
 ];
 ---
 
