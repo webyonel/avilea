@@ -3,13 +3,20 @@
 import { defaultWaLink, WA_PHONE } from '../../lib/whatsapp';
 
 const waHref = defaultWaLink('Hola Avilea, me gustaría más información');
+
+// Para que las anclas funcionen tanto en la home como desde /sobre-nosotros.
+const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/`;
+const currentPath = Astro.url.pathname.replace(/\/$/, '') || '/';
+const baseClean = base.replace(/\/$/, '');
+const isHome = currentPath === baseClean;
+const homePrefix = isHome ? '' : base;
 ---
 
 <footer class="footer">
   <div class="container footer-inner">
     <div class="footer-brand">
-      <a href="#inicio" class="logo">
-        <img src="/logo.webp" alt="Avilea Óptica" class="logo-img" width="180" height="180" />
+      <a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/#inicio`} class="logo">
+        <img src={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/logo.webp`} alt="Avilea Óptica" class="logo-img" width="180" height="180" />
       </a>
       <p>Comercializadora de productos ópticos en Ciego de Ávila. Espejuelos y lentes de contacto con calidad certificada.</p>
     </div>
@@ -17,8 +24,8 @@ const waHref = defaultWaLink('Hola Avilea, me gustaría más información');
     <div class="footer-cols">
       <div class="footer-col">
         <h5>Navegación</h5>
-        <a href="#inicio">Inicio</a>
-        <a href="#productos">Productos</a>
+        <a href={`${homePrefix}#inicio`}>Inicio</a>
+        <a href={`${homePrefix}#productos`}>Productos</a>
       </div>
       <div class="footer-col">
         <h5>Contacto</h5>

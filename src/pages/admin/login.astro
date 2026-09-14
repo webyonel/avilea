@@ -6,6 +6,9 @@
 
 import '../../styles/styles.css';
 import '../../styles/admin.css';
+
+// BASE_URL puede no traer trailing slash → normalizamos a `base/`.
+const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/`;
 ---
 
 <!doctype html>
@@ -14,7 +17,7 @@ import '../../styles/admin.css';
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Avilea · Panel de Administración</title>
-    <link rel="icon" type="image/webp" href="/logo.webp" />
+    <link rel="icon" type="image/webp" href={`${base}logo.webp`} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -30,8 +33,8 @@ import '../../styles/admin.css';
       </div>
 
       <div class="login-card">
-        <a href="/" class="logo-center" aria-label="Avilea · Inicio">
-          <img src="/logo.webp" alt="Avilea Óptica" class="login-logo" width="180" height="180" />
+        <a href={base} class="logo-center" aria-label="Avilea · Inicio">
+          <img src={`${base}logo.webp`} alt="Avilea Óptica" class="login-logo" width="180" height="180" />
           <span class="login-logo-sub">Panel Admin</span>
         </a>
 
@@ -88,7 +91,7 @@ import '../../styles/admin.css';
         </form>
 
         <div class="login-foot">
-          <a href="/">
+          <a href={base}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
@@ -115,8 +118,9 @@ import '../../styles/admin.css';
       const submitIcon = document.getElementById('loginSubmitIcon') as HTMLElement;
 
       // Si ya hay sesión, salta al panel.
+      const baseHref = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/`;
       supabaseBrowser.auth.getSession().then(({ data }) => {
-        if (data.session) window.location.replace('/admin');
+        if (data.session) window.location.replace(`${baseHref}admin`);
       });
 
       toggleBtn?.addEventListener('click', () => {
@@ -136,7 +140,7 @@ import '../../styles/admin.css';
         const { ok, error } = await signInBrowser(emailInput.value, passInput.value);
 
         if (ok) {
-          window.location.href = '/admin';
+          window.location.href = `${baseHref}admin`;
           return;
         }
 

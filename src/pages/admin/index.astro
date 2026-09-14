@@ -19,7 +19,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Avilea · Panel de Administración</title>
-    <link rel="icon" type="image/webp" href="/logo.webp" />
+    <link rel="icon" type="image/webp" href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/logo.webp`} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -32,8 +32,8 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
     <div class="admin-shell" id="adminShell">
       <!-- Sidebar -->
       <aside class="admin-sidebar">
-        <a href="/" class="logo sidebar-logo">
-          <img src="/logo.webp" alt="Avilea Óptica" class="sidebar-logo-img" width="180" height="180" />
+        <a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/`} class="logo sidebar-logo">
+          <img src={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/logo.webp`} alt="Avilea Óptica" class="sidebar-logo-img" width="180" height="180" />
           <span class="sidebar-logo-sub">Admin · v1</span>
         </a>
 
@@ -84,7 +84,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           </a>
 
           <span class="nav-section">Sitio</span>
-          <a href="/" target="_blank" rel="noopener" class="admin-link">
+          <a href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/`} target="_blank" rel="noopener" class="admin-link">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
               <polyline points="15 3 21 3 21 9"></polyline>
@@ -587,9 +587,10 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
       } from '../../lib/posts';
 
       // Sin sesión → fuera.
+      const base = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/`;
       const { data: sessionData } = await supabaseBrowser.auth.getSession();
       if (!sessionData.session) {
-        window.location.replace('/admin/login');
+        window.location.replace(`${base}admin/login`);
         throw new Error('no session');
       }
 
@@ -1527,7 +1528,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
 
         document.getElementById('logoutBtn')?.addEventListener('click', async () => {
           await signOutBrowser();
-          window.location.replace('/admin/login');
+          window.location.replace(`${base}admin/login`);
         });
 
         document.getElementById('sidebarToggle')?.addEventListener('click', (e) => {
