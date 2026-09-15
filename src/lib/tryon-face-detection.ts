@@ -123,9 +123,8 @@ export async function loadFaceLandmarker(
     if (onProgress) onProgress(100);
 
     // 2) Import dinámico desde CDN — solo descarga el JS la primera vez.
-    const mod = (await import(
-      /* @vite-ignore */ `${MEDIAPIPE_BASE}/vision_bundle.mjs`
-    )) as {
+    const visionBundleUrl = `${MEDIAPIPE_BASE}/vision_bundle.mjs`;
+    let mod: {
       FilesetResolver: { forVisionTasks: (url: string) => Promise<unknown> };
       FaceLandmarker: {
         createFromOptions: (
@@ -134,6 +133,12 @@ export async function loadFaceLandmarker(
         ) => Promise<FaceLandmarkerLike>;
       };
     };
+    try {
+      mod = (await import(/* @vite-ignore */ visionBundleUrl)) as typeof mod;
+    } catch (e) {
+      console.error('[tryon] fallo import vision_bundle.mjs desde', visionBundleUrl, e);
+      throw e;
+    }
     const filesetResolver = await mod.FilesetResolver.forVisionTasks(
       `${MEDIAPIPE_BASE}/wasm`
     );
