@@ -92,6 +92,16 @@ export const FOCAL_DISTANCES: { value: FocalDistance; label: string; description
 export type CustomOrder = {
   fullName: string;
   ci: string;
+  /**
+   * Armadura elegida para el pedido.
+   * - `id` poblado desde el probador virtual (ID del catálogo).
+   * - `nombre` y `precio` son el fallback manual: se usan cuando NO hay `id`.
+   *   Si el cliente eligió del probador, ambos quedan autoreflexionados del catálogo
+   *   (puede editarlos si quiere).
+   */
+  armaduraId: string | null;
+  armaduraNombre: string;
+  armaduraPrecio: string;
   material: Material | '';
   treatments: Treatment[];
   focalDistances: FocalDistance[];
@@ -113,6 +123,9 @@ export const EMPTY_EYE: EyeData = {
 export const EMPTY_ORDER: CustomOrder = {
   fullName: '',
   ci: '',
+  armaduraId: null,
+  armaduraNombre: '',
+  armaduraPrecio: '',
   material: '',
   treatments: [],
   focalDistances: [],
@@ -138,12 +151,23 @@ export function orderToMessage(order: CustomOrder): string {
       ? '—'
       : selected.map((x) => labelOf(arr, x)).join(', ');
 
+  // Armadura: si hay ID del catálogo va solo el ID (la tienda lo cruza con el catálogo).
+  // Si NO hay ID, va el nombre y precio manuales que tipeó el cliente.
+  const armaduraLine = order.armaduraId
+    ? `• ID de catálogo: ${order.armaduraId}`
+    : (order.armaduraNombre.trim() !== '' || order.armaduraPrecio.trim() !== '')
+      ? `• Manual: ${v(order.armaduraNombre)} (${v(order.armaduraPrecio)} MN)`
+      : '• —';
+
   return [
     'Hola Avilea, necesito mandar a hacer unos espejuelos a medida.',
     '',
     '*Datos personales*',
     `• Nombre: ${v(order.fullName)}`,
     `• Carnet de Identidad: ${v(order.ci)}`,
+    '',
+    '*Armadura*',
+    armaduraLine,
     '',
     '*Lente*',
     `• Material: ${order.material ? labelOf(MATERIALS, order.material as Material) : '—'}`,

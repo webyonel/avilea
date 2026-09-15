@@ -71,6 +71,41 @@ const tryOnProducts: Product[] = products.filter(
         </label>
       </div>
 
+      <fieldset class="choices-block armadura-block">
+        <legend>Armadura</legend>
+
+        <div class="armadura-card" data-armadura-card hidden>
+          <div class="armadura-card__thumb" data-armadura-thumb aria-hidden="true"></div>
+          <div class="armadura-card__info">
+            <p class="armadura-card__name" data-armadura-name></p>
+            <p class="armadura-card__price" data-armadura-price></p>
+          </div>
+          <button type="button" class="armadura-card__clear" data-armadura-clear aria-label="Quitar selección del probador">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Quitar
+          </button>
+        </div>
+
+        <p class="armadura-hint" data-armadura-hint>
+          Sin selección del probador virtual. Probá las armaduras arriba o completá nombre y precio manualmente.
+        </p>
+
+        <input type="hidden" name="armaduraId" data-armadura-id value="" />
+
+        <div class="form-row armadura-manual">
+          <label class="form-field">
+            <span class="form-label">Nombre (manual)</span>
+            <input type="text" name="armaduraNombre" data-armadura-manual-name placeholder="ej. Aria clásica" />
+          </label>
+          <label class="form-field">
+            <span class="form-label">Precio (MN)</span>
+            <input type="text" name="armaduraPrecio" data-armadura-manual-price placeholder="ej. 1850" inputmode="numeric" />
+          </label>
+        </div>
+      </fieldset>
+
       <fieldset class="choices-block">
         <legend>Material del cristal</legend>
         <div class="choices-row" role="radiogroup" aria-label="Material del cristal">
@@ -305,6 +340,8 @@ const tryOnProducts: Product[] = products.filter(
                       type="button"
                       class="tryon-frame"
                       data-frame-id={p.id}
+                      data-frame-name={p.name}
+                      data-frame-price={p.price}
                       data-shape={p.shape}
                       data-color={p.color ?? '#0a1f5c'}
                       aria-checked="false"
@@ -436,6 +473,80 @@ const tryOnProducts: Product[] = products.filter(
     letter-spacing: 0;
     color: var(--ink-mute);
     margin-left: 4px;
+  }
+
+  /* ===== Armadura (selección del probador + fallback manual) ===== */
+  .armadura-card {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    margin: 0 0 14px;
+    background: var(--primary-soft);
+    border: 1.5px solid var(--primary);
+    border-radius: var(--radius);
+  }
+  .armadura-card[hidden] { display: none; }
+  .armadura-card__thumb {
+    width: 72px;
+    height: 40px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--white);
+    border-radius: var(--radius-sm, 6px);
+    padding: 4px;
+  }
+  .armadura-card__thumb :global(svg) {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+  }
+  .armadura-card__info { min-width: 0; }
+  .armadura-card__name {
+    margin: 0 0 2px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.25;
+  }
+  .armadura-card__price {
+    margin: 0;
+    font-size: 13px;
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .armadura-card__clear {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    transition: all .2s var(--ease);
+  }
+  .armadura-card__clear:hover {
+    color: var(--accent-2);
+    border-color: var(--accent-2);
+  }
+  .armadura-hint {
+    margin: 0 0 14px;
+    font-size: 13px;
+    color: var(--ink-mute);
+    line-height: 1.5;
+  }
+  .armadura-hint[hidden] { display: none; }
+  .armadura-manual {
+    margin-top: 0;
   }
   .choices-row {
     display: flex;
@@ -1133,6 +1244,12 @@ const tryOnProducts: Product[] = products.filter(
         ...EMPTY_ORDER,
         fullName: readField(data, 'fullName'),
         ci: readField(data, 'ci'),
+        armaduraId: (() => {
+          const v = readField(data, 'armaduraId');
+          return v === '' ? null : v;
+        })(),
+        armaduraNombre: readField(data, 'armaduraNombre'),
+        armaduraPrecio: readField(data, 'armaduraPrecio'),
         material: (readField(data, 'material') || '') as
           | ''
           | 'cr9'
@@ -1186,6 +1303,19 @@ const tryOnProducts: Product[] = products.filter(
     resetOverlayPosition,
   } from '../../lib/tryon-face-detection';
 
+  // Preload del modelo apenas carga la página: el usuario va a tener el
+  // modelo cacheado para cuando abra el modal y suba la foto (no siente la
+  // descarga). requestIdleCallback evita competir con el render inicial;
+  // fallback a setTimeout en navegadores sin soporte.
+  {
+    const idle =
+      (window as Window & {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      }).requestIdleCallback ??
+      ((cb: () => void) => window.setTimeout(cb, 1500));
+    idle(() => preloadFaceLandmarker(), { timeout: 3000 });
+  }
+
   {
     const modal = document.getElementById('tryonModal');
     if (!modal) {
@@ -1208,6 +1338,53 @@ const tryOnProducts: Product[] = products.filter(
       const railNext = modal.querySelector<HTMLButtonElement>('[data-tryon-rail-next]');
       const orderForm = document.getElementById('orderForm');
       const canvas = modal.querySelector<HTMLElement>('.tryon-canvas');
+
+      // Sincronización armadura ↔ formulario (selección del probador).
+      const armaduraCard = orderForm?.querySelector<HTMLElement>('[data-armadura-card]');
+      const armaduraThumb = orderForm?.querySelector<HTMLElement>('[data-armadura-thumb]');
+      const armaduraName = orderForm?.querySelector<HTMLElement>('[data-armadura-name]');
+      const armaduraPrice = orderForm?.querySelector<HTMLElement>('[data-armadura-price]');
+      const armaduraHint = orderForm?.querySelector<HTMLElement>('[data-armadura-hint]');
+      const armaduraIdInput = orderForm?.querySelector<HTMLInputElement>('[data-armadura-id]');
+      const armaduraManualName = orderForm?.querySelector<HTMLInputElement>('[data-armadura-manual-name]');
+      const armaduraManualPrice = orderForm?.querySelector<HTMLInputElement>('[data-armadura-manual-price]');
+      const armaduraClearBtn = orderForm?.querySelector<HTMLButtonElement>('[data-armadura-clear]');
+
+      function syncArmaduraFromTryon(id: string) {
+        const btn = modal.querySelector<HTMLButtonElement>(
+          `.tryon-frame[data-frame-id="${CSS.escape(id)}"]`,
+        );
+        if (!btn || !armaduraCard || !armaduraIdInput) return;
+        const name = btn.dataset.frameName || '';
+        const priceRaw = btn.dataset.framePrice || '';
+        const priceNum = Number(priceRaw);
+        const priceStr = Number.isFinite(priceNum) && priceNum > 0
+          ? priceNum.toLocaleString('es-ES')
+          : priceRaw;
+
+        // ID oculto
+        armaduraIdInput.value = id;
+        // Card visible con thumb + nombre + precio
+        const thumb = btn.querySelector<HTMLElement>('.tryon-frame__thumb');
+        if (armaduraThumb && thumb) armaduraThumb.innerHTML = thumb.innerHTML;
+        if (armaduraName) armaduraName.textContent = name;
+        if (armaduraPrice) armaduraPrice.textContent = priceStr ? `${priceStr} MN` : '';
+        armaduraCard.hidden = false;
+        if (armaduraHint) armaduraHint.hidden = true;
+        // Autofill de los inputs manuales (el cliente puede editarlos si quiere)
+        if (armaduraManualName) armaduraManualName.value = name;
+        if (armaduraManualPrice && priceStr) armaduraManualPrice.value = priceStr;
+      }
+
+      function clearArmaduraFromForm() {
+        if (armaduraIdInput) armaduraIdInput.value = '';
+        if (armaduraCard) armaduraCard.hidden = true;
+        if (armaduraHint) armaduraHint.hidden = false;
+        if (armaduraManualName) armaduraManualName.value = '';
+        if (armaduraManualPrice) armaduraManualPrice.value = '';
+      }
+
+      armaduraClearBtn?.addEventListener('click', clearArmaduraFromForm);
 
       let lastFocus: HTMLElement | null = null;
 
@@ -1235,22 +1412,38 @@ const tryOnProducts: Product[] = products.filter(
 
       /* ---------- Estados de detección (loading / sin cara) ---------- */
 
+      function ensureIndicator(): HTMLElement | null {
+        if (!canvas) return null;
+        let indicator = canvas.querySelector<HTMLElement>('.tryon-detect-indicator');
+        if (!indicator) {
+          indicator = document.createElement('div');
+          indicator.className = 'tryon-detect-indicator';
+          indicator.innerHTML =
+            '<span class="tryon-spinner" aria-hidden="true"></span><span class="tryon-detect-label"></span>';
+          canvas.appendChild(indicator);
+        }
+        return indicator;
+      }
+
       function setDetecting(on: boolean) {
         if (!canvas) return;
         canvas.classList.toggle('is-detecting', on);
-        let indicator = canvas.querySelector<HTMLElement>('.tryon-detect-indicator');
+        const indicator = ensureIndicator();
+        if (!indicator) return;
         if (on) {
-          if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.className = 'tryon-detect-indicator';
-            indicator.innerHTML =
-              '<span class="tryon-spinner" aria-hidden="true"></span><span>Analizando tu foto…</span>';
-            canvas.appendChild(indicator);
-          }
+          const label = indicator.querySelector<HTMLElement>('.tryon-detect-label');
+          if (label) label.textContent = 'Analizando tu foto…';
           indicator.hidden = false;
-        } else if (indicator) {
+        } else {
           indicator.hidden = true;
         }
+      }
+
+      /** Actualiza solo el texto del indicador (sin tocar el spinner). */
+      function setIndicatorLabel(text: string) {
+        const indicator = ensureIndicator();
+        const label = indicator?.querySelector<HTMLElement>('.tryon-detect-label');
+        if (label) label.textContent = text;
       }
 
       function setDetectionMessage(msg: string | null) {
@@ -1286,7 +1479,17 @@ const tryOnProducts: Product[] = products.filter(
           });
         }
 
-        const result = await detectFaceInPhoto(photo);
+        // Callback de progreso: actualiza el indicador mientras se baja / inicializa el modelo.
+        // Si el modelo ya estaba precargado, estos callbacks apenas se ejecutan.
+        const onProgress = (pct: number) => {
+          if (pct < 100) {
+            setIndicatorLabel(`Descargando modelo… ${pct}%`);
+          } else {
+            setIndicatorLabel('Inicializando…');
+          }
+        };
+
+        const result = await detectFaceInPhoto(photo, onProgress);
         setDetecting(false);
 
         if (result.found) {
@@ -1342,6 +1545,8 @@ const tryOnProducts: Product[] = products.filter(
         overlay.style.setProperty('--frame-color', color);
         const name = btn.querySelector<HTMLElement>('.tryon-frame__name')?.textContent?.trim();
         if (name && titleEl) titleEl.textContent = name;
+        // Sincronizar el formulario con la armadura seleccionada del probador.
+        syncArmaduraFromTryon(id);
         // Centrar la selección en el rail.
         btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       }

@@ -2,9 +2,11 @@
 // Detección de cara/ojos para el probador virtual usando MediaPipe Face Landmarker.
 //
 // Flujo:
-//   1. Al abrir el modal del probador, se llama `preloadFaceLandmarker()` que
-//      descarga (vía CDN) el bundle JS + el WASM + el modelo (~5 MB). Singleton:
-//      la segunda vez se devuelve la instancia cacheada.
+//   1. Apenas carga la página, `preloadFaceLandmarker()` empieza a bajar el
+//      bundle JS, el WASM y el modelo (.task, ~1.8 MB). El modelo viene
+//      empaquetado localmente en /mediapipe/face_landmarker.task (paralelo al
+//      resto del sitio, sin dependencia externa). Singleton: la segunda vez
+//      devuelve la instancia cacheada.
 //   2. Cuando el usuario sube su foto, `detectFaceInPhoto(img)` corre la
 //      detección y devuelve los landmarks del primer rostro.
 //   3. `computeOverlayPosition(landmarks, img, container)` mapea los landmarks
@@ -56,8 +58,14 @@ const EYE_DISTANCE_TO_OVERLAY_WIDTH = 2.6;
 
 const MEDIAPIPE_VERSION = '0.10.18';
 const MEDIAPIPE_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}`;
-const MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task';
+
+// Modelo bundleado en el sitio (descargado en paralelo con el resto, sin
+// dependencia de Google Storage en runtime). `BASE_URL` ya viene con
+// trailing slash (ej. '/avilea/'); si no, lo dejamos pasar tal cual.
+const MODEL_URL = `${import.meta.env.BASE_URL}mediapipe/face_landmarker.task`;
+
+/** Callback opcional para reportar progreso de descarga del modelo (0..100). */
+export type ModelProgressCallback = (pct: number) => void;
 
 // Tipo mínimo del API de FaceLandmarker (evita importar el módulo en el .ts
 // — solo se importa en runtime, dentro de `loadFaceLandmarker`).
@@ -68,13 +76,53 @@ interface FaceLandmarkerLike {
 let landmarkerInstance: FaceLandmarkerLike | null = null;
 let landmarkerLoading: Promise<FaceLandmarkerLike> | null = null;
 
+/** Precarga el modelo local con fetch + ReadableStream para reportar progreso. */
+async function prefetchModelWithProgress(
+  url: string,
+  onProgress?: ModelProgressCallback
+): Promise<void> {
+  // Cache HTTP estándar: si el modelo ya está en cache, la promesa resuelve
+  // casi instantánea sin disparar el callback (caso normal en visitas 2+).
+  const resp = await fetch(url, { cache: 'force-cache' });
+  if (!resp.ok || !resp.body) {
+    throw new Error(`fetch modelo ${resp.status}`);
+  }
+  const total = Number(resp.headers.get('content-length') || 0);
+  if (!total || !onProgress) {
+    // Sin content-length (compresión, etc.) o sin callback: igual consumimos
+    // el body para que el browser lo cachee, pero sin reportar progreso.
+    await resp.body.cancel();
+    return;
+  }
+  const reader = resp.body.getReader();
+  let received = 0;
+  let lastReported = -1;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    received += value.byteLength;
+    const pct = Math.min(100, Math.round((received / total) * 100));
+    if (pct !== lastReported) {
+      lastReported = pct;
+      onProgress(pct);
+    }
+  }
+}
+
 /** Carga MediaPipe Face Landmarker (singleton, lazy). */
-export async function loadFaceLandmarker(): Promise<FaceLandmarkerLike> {
+export async function loadFaceLandmarker(
+  onProgress?: ModelProgressCallback
+): Promise<FaceLandmarkerLike> {
   if (landmarkerInstance) return landmarkerInstance;
   if (landmarkerLoading) return landmarkerLoading;
 
   landmarkerLoading = (async () => {
-    // Import dinámico desde CDN — solo descarga el JS la primera vez.
+    // 1) Bajar el modelo local con reporte de progreso (si hay callback).
+    if (onProgress) onProgress(0);
+    await prefetchModelWithProgress(MODEL_URL, onProgress);
+    if (onProgress) onProgress(100);
+
+    // 2) Import dinámico desde CDN — solo descarga el JS la primera vez.
     const mod = (await import(
       /* @vite-ignore */ `${MEDIAPIPE_BASE}/vision_bundle.mjs`
     )) as {
@@ -111,9 +159,10 @@ export async function loadFaceLandmarker(): Promise<FaceLandmarkerLike> {
 }
 
 /**
- * Dispara la precarga en background. Útil para empezar a bajar el modelo
- * apenas el usuario abre el modal (sin bloquearlo). Si falla, el catch
- * interno deja el estado limpio para reintentar.
+ * Dispara la precarga en background apenas carga la página (sin callback de
+ * progreso; el progreso se reporta solo cuando el usuario sube la foto y
+ * todavía no está en cache). Si falla, el catch interno deja el estado
+ * limpio para reintentar.
  */
 export function preloadFaceLandmarker(): void {
   loadFaceLandmarker().catch(() => {
@@ -122,12 +171,13 @@ export function preloadFaceLandmarker(): void {
 }
 
 /**
- corre la detección sobre una imagen ya cargada en el DOM.
+ * corre la detección sobre una imagen ya cargada en el DOM.
  * Devuelve `{ found: false }` si no hay cara, no se pudo cargar MediaPipe,
- * o la imagen no está lista.
+ * o la imagen no está lista. Acepta un callback de progreso del modelo.
  */
 export async function detectFaceInPhoto(
-  img: HTMLImageElement
+  img: HTMLImageElement,
+  onProgress?: ModelProgressCallback
 ): Promise<FaceDetectionResult> {
   if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) {
     return { found: false };
@@ -135,7 +185,7 @@ export async function detectFaceInPhoto(
 
   let landmarker: FaceLandmarkerLike;
   try {
-    landmarker = await loadFaceLandmarker();
+    landmarker = await loadFaceLandmarker(onProgress);
   } catch (e) {
     console.warn('[tryon] no se pudo inicializar MediaPipe', e);
     return { found: false };

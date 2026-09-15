@@ -7,15 +7,14 @@
 
 ## 1. Resumen
 
-**Avilea** es una óptica comercial con 3 locales en Cuba: Ciego de Ávila, Ciro Redondo (Pina) y Morón. Este proyecto (`avilea/`) es la migración a **Astro** del sitio vanilla original (`/home/onel/Proyectos/Clientes/HTMLAvilea/`). Mantiene el mismo diseño base; **agrega** backend (Supabase, en fase 2), un **formulario de espejuelos a medida**, un **probador virtual con foto** y una **página Sobre Nosotros** con visión, galería y blog.
+**Avilea** es una óptica comercial con 3 locales en Cuba: Ciego de Ávila, Ciro Redondo (Pina) y Morón. Este proyecto (`avilea/`) es la migración a **Astro** del sitio vanilla original (`/home/onel/Proyectos/Clientes/HTMLAvilea/`). Mantiene el mismo diseño base; **agrega** backend (Supabase + RLS), un **formulario de espejuelos a medida**, un **probador virtual con foto**, una **página Sobre Nosotros** con visión, galería y blog, y un **panel admin** con CRUD de productos y publicaciones.
 
 Estado actual:
 
 - `/` — Home con Hero, Catálogo, Probador virtual (dentro de `#pedido`), Formulario de pedido y Contacto.
-- `/sobre-nosotros` — Visión / cómo trabajamos, galería de fotos, blog, CTA.
-- Admin y persistencia de pedidos aún no implementados (fase 2 con Supabase).
-
-SSR con `@astrojs/node` standalone.
+- `/sobre-nosotros` — Visión / cómo trabajamos, galería de fotos, blog (modal fullscreen), CTA.
+- `/admin` — Login con Supabase Auth. Panel con dashboard, CRUD productos, CRUD publicaciones, tasa USD → MN.
+- Deploy **estático** en **GitHub Pages** vía GitHub Actions. Build-time: el frontmatter de cada página hace snapshot del contenido desde Supabase (anon key + RLS público). Runtime admin: escrituras desde el browser con sesión Supabase Auth + RLS `authenticated`.
 
 ---
 
@@ -33,8 +32,8 @@ SSR con `@astrojs/node` standalone.
 - Dirección Ciego de Ávila: "Calle Joaquín de Agüero entre Honorato del Castillo y Maceo, #82, **en el Cine-Teatro Iriondo**, Ciego de Ávila, Cuba" (no "frente al").
 - Horario: Lun–Sáb 9:00 AM – 6:00 PM.
 - Idiomas: **solo español**, sin i18n.
-- Admin: credenciales hardcoded `onelmartinezv@gmail.com` / `onelito17` (se mantienen en fase 1; ver §8).
-- localStorage clave `avilea_products`.
+- Admin: ahora usa **Supabase Auth** (email + password). El usuario se crea en **Supabase → Authentication → Users**. Las credenciales hardcoded de fase 1 están deprecadas.
+- localStorage: ya no se usa para productos (`avilea_products` eliminado). El admin usa la sesión de Supabase que el cliente `@supabase/supabase-js` persiste automáticamente en localStorage del browser.
 
 Cuando haya duda sobre comportamiento o copy, **consultar primero** `/home/onel/Proyectos/Clientes/HTMLAvilea/README.md` y el código en `HTMLAvilea/`.
 
@@ -45,12 +44,14 @@ Cuando haya duda sobre comportamiento o copy, **consultar primero** `/home/onel/
 | Decisión | Valor | Motivo |
 |---|---|---|
 | Framework | Astro 7.x | Migración desde HTML plano. |
-| Modo de render | **SSR (`output: 'server'`)** | Necesario para `@astrojs/node` y futuros endpoints de Supabase. |
-| Adapter | **`@astrojs/node`** en modo `standalone` | Único adapter instalado; evita dependencia de plataforma de deploy. |
+| Modo de render | **Estático (`output: 'static'`)** | Deploy en GitHub Pages (sin servidor). El frontmatter de cada página hace fetch a Supabase al build → snapshot al deploy. |
+| Adapter | **ninguno** | No hay SSR; GitHub Pages sirve los archivos estáticos del bundle. |
+| Deploy | **GitHub Pages** vía `.github/workflows/deploy.yml` | Build + deploy automático en cada push a `main`. |
 | Estilos | **CSS vanilla**, sin Tailwind ni preprocesadores | Decisión explícita del cliente. Se conserva `styles.css` y `admin.css` del original. |
 | JS interactivo | Islas (`client:*`) o `<script>` en `.astro` | Filtros del catálogo, login admin, formulario a medida. |
-| Package manager | `pnpm` | — |
-| Node | `>=22.12.0` (en `package.json`) | — |
+| Package manager | `pnpm` | `pnpm-workspace.yaml` requiere `packages: ['.']` para pnpm 10+. |
+| Node | `>=22.12.0` (en `package.json`) | El workflow usa Node 22. |
+| Base path | `astro.config.mjs → base: '/avilea'` | El repo vive en `https://<owner>.github.io/avilea/`. Override con env `BASE_PATH`. **Todos** los assets, links y redirects concatenan con `import.meta.env.BASE_URL` (normalizado a `base/` con trailing slash). |
 
 ---
 
@@ -58,12 +59,16 @@ Cuando haya duda sobre comportamiento o copy, **consultar primero** `/home/onel/
 
 ```
 avilea/
+├── .github/
+│   └── workflows/deploy.yml  # GitHub Actions: build + deploy a GitHub Pages
 ├── public/
 │   ├── logo.webp              # logo de marca (453×453, RGBA, fondo sky)
 │   ├── mascota_avilea.webp    # mascota 3D (1264×678 RGBA, fondo removido)
 │   ├── local_ciego1.jpg       # foto del local en Ciego
 │   ├── local_pina2.jpg        # foto del local en Pina
 │   ├── local_moron.jpg        # foto del local en Morón
+│   ├── img/                   # galería de /sobre-nosotros (galeria-*.jpg)
+│   ├── .nojekyll              # desactiva Jekyll en GitHub Pages
 │   ├── favicon.svg            # favicon stylized "A" en rojo/azul
 │   └── favicon.ico
 ├── src/
@@ -80,25 +85,42 @@ avilea/
 │   │   │   ├── WhatsAppFloat.astro
 │   │   │   ├── CustomOrderForm.astro  # espejuelos a medida + probador virtual
 │   │   │   ├── Gallery.astro          # galería con lightbox (página /sobre-nosotros)
-│   │   │   └── PostCard.astro         # card del blog
-│   │   └── admin/             # (fase 2) Panel admin
+│   │   │   ├── PostCard.astro         # card del blog
+│   │   │   └── PostModal.astro        # modal fullscreen de un post (blog)
+│   │   └── admin/
+│   │       └── MarkdownHelpModal.astro  # ayuda de markdown en el form de post
+│   ├── db/
+│   │   └── supabase.ts        # supabaseAnon (cliente build-time)
 │   ├── layouts/
 │   │   └── Layout.astro       # público (navbar + footer + WA float)
 │   ├── lib/
+│   │   ├── admin-auth.ts      # supabaseBrowser + signInBrowser + signOutBrowser
 │   │   ├── catalog.ts         # Category, Product, DEFAULT_PRODUCTS, CATEGORY_LABEL/CHIP
-│   │   ├── orders.ts          # CustomOrder, MATERIALS, TREATMENTS, FOCAL_DISTANCES, orderToMessage
 │   │   ├── contact.ts         # LOCATIONS (3 locales con phone/display/image/address)
-│   │   ├── whatsapp.ts        # WA_PHONE, WA_PHONE_ORDERS, waLink, productWaLink, orderWaLink, defaultWaLink
 │   │   ├── format.ts          # formatPrice
+│   │   ├── orders.ts          # CustomOrder, MATERIALS, TREATMENTS, FOCAL_DISTANCES, orderToMessage
+│   │   ├── posts.ts           # Post, PostCategory, DEFAULT_POSTS, formatPostDate (blog)
+│   │   ├── supabase-products.ts  # fetchProducts() (build-time)
+│   │   ├── supabase-posts.ts     # fetchPosts() (build-time)
 │   │   ├── svgShapes.ts       # generadores SVG por forma
-│   │   └── posts.ts           # Post, PostCategory, DEFAULT_POSTS, formatPostDate (blog)
+│   │   └── whatsapp.ts        # WA_PHONE, WA_PHONE_ORDERS, waLink, productWaLink, orderWaLink, defaultWaLink
 │   ├── pages/
 │   │   ├── index.astro            # / — home
-│   │   └── sobre-nosotros.astro   # /sobre-nosotros
+│   │   ├── sobre-nosotros.astro   # /sobre-nosotros
+│   │   └── admin/
+│   │       ├── index.astro        # /admin — panel (dashboard, CRUD productos, CRUD posts, tasa USD)
+│   │       └── login.astro        # /admin/login — pantalla de login
 │   └── styles/
 │       ├── styles.css         # público (puerto de HTMLAvilea/styles.css)
-│       └── tokens.css         # variables CSS compartidas (paleta del logo)
+│       ├── tokens.css         # variables CSS compartidas (paleta del logo)
+│       └── admin.css          # panel admin
+├── supabase/
+│   └── migrations/
+│       ├── 001_create_products.sql  # tabla products + RLS
+│       ├── 002_create_settings.sql  # tabla settings (tasa USD)
+│       └── 003_create_posts.sql     # tabla posts + RLS + seed
 ├── astro.config.mjs
+├── pnpm-workspace.yaml        # requiere `packages: ['.']` para pnpm 10+
 ├── package.json
 ├── README.md
 └── AGENTS.md
@@ -106,9 +128,12 @@ avilea/
 
 **Reglas de organización:**
 
-- Cualquier constante de negocio (teléfono WA, dirección, horario, credenciales, locales) vive en `src/lib/`. **Nunca** hardcoded en componentes.
+- Cualquier constante de negocio (teléfono WA, dirección, horario, locales) vive en `src/lib/`. **Nunca** hardcoded en componentes.
+- Toda ruta de asset (imagen, link, redirect JS) se construye con `import.meta.env.BASE_URL` (normalizado a `base/` con trailing slash). **Nunca** un path hardcodeado con `/` (ej. `src="/logo.webp"`). Esto rompe el deploy en subpath de GitHub Pages.
 - CSS por componente: solo overrides locales con `<style>` scoped en el `.astro`. El grueso va en `src/styles/`.
 - Cada sección grande del sitio = un componente en `components/public/`.
+- Capas de Supabase (build-time): `src/lib/supabase-*.ts` para `products`, `posts`. Solo exponen `fetch*()` server-side. Sin escritura.
+- Auth admin (runtime): `src/lib/admin-auth.ts` expone `supabaseBrowser` + helpers `signInBrowser` / `signOutBrowser`. Las escrituras se hacen desde el panel con `supabaseBrowser.from(tabla).insert/update/delete(...)`; las RLS policies filtran por `auth.role() = 'authenticated'`.
 
 ---
 
@@ -156,14 +181,13 @@ type Product = {
 };
 ```
 
-### 5.3. Storage y migración (fase 1)
+### 5.3. Storage (Supabase, fase 2)
 
-- Persistencia: `localStorage` clave `avilea_products`.
-- Al cargar, aplicar en orden:
-  1. Reclasificar `sol` → `unisex`.
-  2. Agregar productos del array por defecto que no estén en localStorage (comparar por `id`).
-  3. Rellenar `image` en productos que estén en `null` y tengan archivo físico.
-- El array por defecto vive en `src/lib/catalog.ts` como `DEFAULT_PRODUCTS`.
+- **Persistencia**: tabla `public.products` en Supabase (definida en `supabase/migrations/001_create_products.sql`).
+- **Build-time (sitio público)**: `fetchProducts()` en `src/lib/supabase-products.ts` usa `supabaseAnon`. La RLS `products_public_read` permite lectura con anon key.
+- **Runtime (admin)**: panel admin en `/admin` usa `supabaseBrowser` con sesión activa. La RLS `products_authenticated_write` (`auth.role() = 'authenticated'`) cubre INSERT/UPDATE/DELETE.
+- `DEFAULT_PRODUCTS` en `src/lib/catalog.ts` queda como **seed inicial / fallback** (idéntico al insert de la migración 001). El sitio público no lo usa si Supabase responde; el admin puede confiar en los datos remotos.
+- **Imagen**: se sube desde el admin como data URL (JPEG comprimido client-side, ~500 KB) y se guarda en la columna `image`. No se usa Supabase Storage para mantener el bundle simple.
 
 ---
 
@@ -243,42 +267,39 @@ Cada tarjeta de local construye su propio `waLink(loc.phone, ...)`. La línea de
 
 ---
 
-## 8. Panel admin (Fase 1: localStorage)
+## 8. Panel admin (Supabase Auth + RLS, deploy estático)
 
-### 8.1. Credenciales
+### 8.1. Auth
 
-```ts
-// src/lib/auth.ts (SOLO FASE 1 — mover a Supabase en fase 2)
-export const ADMIN_EMAIL = 'onelmartinezv@gmail.com';
-export const ADMIN_PASSWORD = 'onelito17';
-```
-
-> **Nota de seguridad**: estas credenciales son conocidas y son la realidad del negocio original. **No** cambiarlas sin conversación explícita con el cliente. En fase 2 se reemplazan por auth real de Supabase.
+- **Sin credenciales hardcoded**: el login usa Supabase Auth. El usuario admin se crea en **Supabase → Authentication → Users** (email + password).
+- Cliente: `supabaseBrowser` en `src/lib/admin-auth.ts`. Persiste sesión automáticamente en localStorage del browser vía `@supabase/supabase-js`.
+- **Sin service role key** — esa key nunca debe aparecer en el bundle (sería pública). Todas las escrituras del admin pasan por `supabaseBrowser` con anon key + sesión activa, y las RLS policies cubren los permisos.
 
 ### 8.2. Sesión
 
-- `localStorage` clave `avilea_admin_session`: `{ loggedIn: true, ts: number }`.
-- Expiración: 8 horas desde login (`Date.now() - ts > 8 * 3600 * 1000` → redirigir a login).
-- Logout: borrar la clave.
+- La sesión la maneja Supabase (`supabaseBrowser.auth.getSession()`). El panel admin chequea al cargar y redirige a `/admin/login` si no hay sesión.
+- Logout: `signOutBrowser()` en `admin-auth.ts` borra la sesión local.
 
 ### 8.3. Rutas
 
-- `/admin` → si no hay sesión, redirige a `/admin/login`. Si hay sesión, muestra dashboard.
-- `/admin/login` → formulario. Éxito → setea sesión y redirige a `/admin`.
-- Middleware (`src/middleware.ts`) protege `/admin/**` excepto `/admin/login`.
+- `/admin` → si no hay sesión, redirige a `/admin/login`. Si hay, muestra el panel.
+- `/admin/login` → formulario de Supabase Auth. Éxito → redirige a `/admin`.
+- **No hay middleware** (el deploy es estático, no hay server). La protección se hace client-side en cada vista con `getSession()`.
 
 ### 8.4. Funcionalidad
 
-Replicar lo que tiene `HTMLAvilea/admin.html`:
-- Listar productos.
-- Crear / editar / eliminar producto.
-- Editar `name`, `category`, `price`, `image`, `shape`.
-- Persistencia: `localStorage` con la clave y migraciones de §5.3.
+- **Dashboard**: KPIs (productos totales, categorías, publicaciones), productos recientes, tasa USD → MN editable (lee/escribe en tabla `settings`).
+- **Productos** (`/admin#productos`): listar, crear, eliminar. Imagen se sube desde el admin (data URL comprimida en canvas). Categorías que requieren ID manual (`armaduras`, `femenino`, `masculino`, `ninos`, `unisex`, `accesorios`) lo piden explícitamente; el resto auto-genera desde el nombre.
+- **Blog** (`/admin#blog`): listar, crear, eliminar publicaciones. Slug se auto-genera desde el título (`slugify()`). Editor markdown con modal de ayuda (`MarkdownHelpModal`).
+- **Sin edición inline** de productos/posts: solo crear + listar + eliminar. Edición se puede agregar después si hace falta.
+- **Tasa USD** (`/admin#dashboard`): input numérico que upsert en `settings` (`key = 'usd_rate'`, `value = número`). El sitio público aún no la usa (no se muestran precios en USD); es solo para uso futuro.
 
-### 8.5. Bug conocido a portar
+### 8.5. Bugs y detalles visuales que ya están resueltos
 
-- **Login**: inputs flex necesitan `min-width: 0` para que el botón "ojo" del toggle de contraseña no se salga. Ya está en `HTMLAvilea/admin.css` — copiarlo literal.
-- **Sidebar móvil**: el toggle del sidebar debe llevar `e.stopPropagation()` para que el click no burbujee a `.admin-main` y cierre el menú inmediatamente.
+- **Login**: inputs flex con `min-width: 0` para que el toggle de contraseña no se salga.
+- **Sidebar móvil**: el toggle lleva `e.stopPropagation()` para no cerrar el menú al abrirlo.
+- **Textarea dentro de `.input-wrap`**: hereda transparente y `flex: 1`, sin borde propio (la wrap aporta el borde). Sin esto se duplicaba el border y el placeholder se cortaba.
+- **Upload zone con compresión canvas**: 4 pasadas bajando resolución/calidad (1200/0.85 → 1000/0.80 → 800/0.75 → 700/0.70) hasta entrar en ~500 KB.
 
 ---
 
@@ -286,7 +307,7 @@ Replicar lo que tiene `HTMLAvilea/admin.html`:
 
 ### 9.1. Objetivo
 
-Que el visitante pueda pedir armaduras graduadas a medida. **Fase 1**: el envío **no persiste**, solo abre WhatsApp en la línea dedicada `WA_PHONE_ORDERS` con el resumen prellenado.
+Que el visitante pueda pedir armaduras graduadas a medida. El envío **no persiste en backend**: solo abre WhatsApp en la línea dedicada `WA_PHONE_ORDERS` con el resumen prellenado.
 
 ### 9.2. Ubicación
 
@@ -300,6 +321,15 @@ Que el visitante pueda pedir armaduras graduadas a medida. **Fase 1**: el envío
 **Datos personales** (obligatorios):
 - Nombre y Apellidos
 - Carnet de Identidad
+
+**Armadura**:
+- **Card de selección** (visible solo si hay selección del probador): muestra el thumb SVG + nombre + precio de la armadura elegida en el probador virtual, con botón "Quitar" para limpiarla.
+- **Inputs manuales** (siempre visibles, fallback): "Nombre (manual)" y "Precio (MN)". Sirven cuando el cliente NO usó el probador virtual y quiere tipear el nombre y precio de la armadura que vio en el catálogo/tienda.
+- **Hidden input `armaduraId`**: lo setea automáticamente el script cuando el cliente elige una armadura del probador. Su presencia indica "selección del catálogo".
+- **Regla de envío por WhatsApp**:
+  - Si `armaduraId` está set → la sección *Armadura* del mensaje lleva `• ID de catálogo: <id>`.
+  - Si NO hay ID pero hay nombre/precio manuales → lleva `• Manual: <nombre> (<precio> MN)`.
+  - Si no hay nada → `• —`.
 
 **Lente** (con descripciones popover al click del ⓘ):
 - **Material** (radio único): CR-9 (Orgánico), Policarbonato, High Index.
@@ -341,6 +371,9 @@ type FocalDistance = 'monofocal' | 'bifocal' | 'progresivo';
 type CustomOrder = {
   fullName: string;
   ci: string;
+  armaduraId: string | null;     // null si no usó el probador; ID del catálogo si lo usó
+  armaduraNombre: string;        // fallback manual cuando armaduraId es null
+  armaduraPrecio: string;        // fallback manual cuando armaduraId es null
   material: Material | '';
   treatments: Treatment[];
   focalDistances: FocalDistance[];
@@ -352,13 +385,25 @@ type CustomOrder = {
 };
 ```
 
-`orderToMessage(order: CustomOrder): string` arma un mensaje legible multi-línea con secciones `*Datos personales*`, `*Lente*`, `*Ojo derecho*`, `*Ojo izquierdo*`, `*Adicional*`. Campos vacíos se renderizan como `—`.
+`orderToMessage(order: CustomOrder): string` arma un mensaje legible multi-línea con secciones `*Datos personales*`, `*Armadura*`, `*Lente*`, `*Ojo derecho*`, `*Ojo izquierdo*`, `*Adicional*`. Campos vacíos se renderizan como `—`. En la sección *Armadura*, si `armaduraId` está set se manda solo el ID (la tienda lo cruza con el catálogo); si no, se manda el nombre y precio manuales.
 
 ### 9.6. Probador virtual (callout + modal fullscreen)
 
 Dentro de `#pedido`, justo encima del `<form>`, hay un callout "**¿Querés ver cómo te quedan antes de pedirlas?**" con el botón primario "Probar armaduras". Al click se abre `#tryonModal`, un modal con dos estados y un footer con link "completá el pedido" (que hace scroll al form).
 
-**Lógica mínima, sin backend**: solo abrir/cerrar, `URL.createObjectURL` para previsualizar la foto del usuario, click en thumb del carrusel para swapear el SVG de la armadura seleccionada. **No** persiste la foto, **no** detecta la cara (el overlay está posicionado estáticamente a `top: 32%` del canvas). Cuando se integre face-tracking o AR, se enchufa en el `<script>` del componente dejando el HTML intacto.
+**Detección de cara** (MediaPipe Face Landmarker, 478 landmarks): corre 100% en el browser (WASM con delegate GPU). Solo usa los landmarks `33` (esquina exterior ojo derecho) y `263` (esquina exterior ojo izquierdo) para calcular el centro de los ojos, el ancho del overlay (distancia entre ojos × 2.6) y el ángulo de rotación (roll de la cabeza). `computeOverlayPosition` compensa el recorte de `object-fit: cover` para mapear coordenadas normalizadas → píxeles del contenedor.
+
+**Modelo bundleado localmente**: `public/mediapipe/face_landmarker.task` (1.8 MB, float16). Se sirve desde el mismo sitio en `${import.meta.env.BASE_URL}mediapipe/face_landmarker.task` — sin dependencia de Google Storage en runtime. El bundle JS + WASM siguen viniendo de jsDelivr CDN (`@mediapipe/tasks-vision@0.10.18`) por su tamaño pequeño y caching global.
+
+**Preload agresivo**: `preloadFaceLandmarker()` se dispara apenas carga la página con `requestIdleCallback` (fallback `setTimeout(1500)`). Cuando el usuario abre el modal + sube la foto, el modelo ya está cacheado — la detección es casi instantánea.
+
+**Progreso real en la UI**: `prefetchModelWithProgress` usa `fetch + ReadableStream` y reporta 0..100% mientras baja el modelo. El indicador del canvas muestra:
+- `Descargando modelo… XX%` durante la descarga (caso primera visita).
+- `Inicializando…` cuando llega al 100% y se crea el FaceLandmarker.
+- `Analizando tu foto…` durante `detect()` (suele ser <100ms).
+Si el modelo ya estaba cacheado, el progreso pasa 0→100 muy rápido y el usuario ve "Analizando tu foto…" casi directo.
+
+**Privacidad**: la foto nunca sale del dispositivo. `URL.createObjectURL(file)` crea un blob local que solo vive en memoria del browser.
 
 **Filter de armaduras**: el componente recibe `products: Product[]` por prop. Filtra in-place por `shape ∈ {round, cat, rect, square, rimless, aviator, wayfarer}` para descartar accesorios. Renderiza cada item con `renderShape(p.shape, p.color ?? '#0a1f5c')` en el thumb del rail.
 
@@ -366,37 +411,52 @@ Dentro de `#pedido`, justo encima del `<form>`, hay un callout "**¿Querés ver 
 
 **Props**: `CustomOrderForm` recibe `products?: Product[]` con default `DEFAULT_PRODUCTS`. La home pasa `products={DEFAULT_PRODUCTS}` desde `index.astro`.
 
-**Pendiente fase 2**: integrar el face-tracking (face-api.js, MediaPipe o lo que decida el cliente). El HTML no cambia; solo el script que posiciona el overlay y aplica el SVG de la armadura seleccionada sobre la cara detectada.
-
 ---
 
-## 10. Roadmap Supabase (Fase 2)
+## 10. Supabase (Fase 2 — implementado)
 
-Cuándo se aborda: cuando el cliente lo pida. No se implementa preventivamente.
+### 10.1. Lo que ya está hecho
 
-### 10.1. Cambios esperados
-
-- **Auth real**: Supabase Auth con email/password para el admin. Las credenciales hardcoded desaparecen.
-- **Productos**: tabla `products` en Supabase. `DEFAULT_PRODUCTS` queda como seed inicial / fallback.
-- **Pedidos**: tabla `custom_orders` que persiste lo que hoy va solo a WhatsApp. El formulario envía a Supabase **y** abre WhatsApp.
-- **Admin**: lee/escribe en Supabase vía `@supabase/supabase-js` server-side (usando service role key en variables de entorno). localStorage se elimina.
+- **Auth real**: Supabase Auth con email/password. Las credenciales hardcoded de fase 1 están deprecadas. El usuario admin se crea en Supabase → Authentication → Users.
+- **Productos**: tabla `public.products` con seed en `001_create_products.sql`. Lectura pública + escritura autenticada vía RLS.
+- **Posts (blog)**: tabla `public.posts` con seed en `003_create_posts.sql`. Lectura pública solo `is_published = true`; escritura autenticada.
+- **Settings (tasa USD)**: tabla `public.settings` (`key text pk`, `value jsonb`) en `002_create_settings.sql`. Upsert autenticado.
+- **Admin client-side**: panel admin en `/admin` hace todo vía `supabaseBrowser` (anon key + sesión Supabase). Las RLS filtran por `auth.role() = 'authenticated'`.
+- **Sitio público (build-time)**: cada página hace fetch a Supabase en el frontmatter (con `supabaseAnon`) y serializa el resultado al bundle estático.
 
 ### 10.2. Variables de entorno
 
-Crear `.env` (en `.gitignore`):
+`.env` (en `.gitignore`):
 
 ```
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
+PUBLIC_SUPABASE_URL=
+PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-Cargar con `import.meta.env` en código que corre server-side (`.astro` en modo SSR, `src/pages/api/*`).
+Cargar con `import.meta.env.PUBLIC_*` (necesario el prefijo `PUBLIC_` para que Astro lo exponga al cliente). **No hay service role key** — esa key no se usa y no debe agregarse.
 
-### 10.3. Estructura sugerida de tablas
+En GitHub Actions se configuran como **Variables** (NO Secrets, porque son públicas y van al bundle): `Settings → Secrets and variables → Actions → Variables`.
 
-- `products`: `id` (text, PK), `name`, `category`, `price`, `image`, `shape`, `description`, `created_at`, `updated_at`.
-- `custom_orders`: `id` (uuid), `full_name`, `phone`, `frame_type`, `material`, `lens_type`, `treatments` (text[]), `focal_distances` (text[]), `notes`, `status` (default `pending`), `created_at`.
+### 10.3. Migraciones
+
+Archivos en `supabase/migrations/` (idempotentes, correr en orden en Supabase → SQL Editor):
+
+- `001_create_products.sql` — tabla `products` + RLS + seed de `DEFAULT_PRODUCTS`.
+- `002_create_settings.sql` — tabla `settings` (`key` PK text, `value` jsonb).
+- `003_create_posts.sql` — tabla `posts` + RLS + seed de 3 posts.
+
+### 10.4. Estructura real de las tablas
+
+- `products`: `id` (text PK), `name`, `category`, `price` (numeric), `image` (text), `shape`, `color`, `description`, `created_at`, `updated_at`. CHECK de categoría en 8 valores.
+- `posts`: `id` (uuid PK default `gen_random_uuid()`), `slug` (text unique), `title`, `excerpt`, `content` (markdown), `cover`, `category`, `author`, `is_published` (bool), `published_at`, `created_at`, `updated_at`. CHECK de categoría en 4 valores.
+- `settings`: `key` (text PK), `value` (jsonb).
+
+### 10.5. Pendientes futuros
+
+- **Persistencia de pedidos**: hoy el formulario abre WhatsApp sin guardar. Tabla `custom_orders` queda como trabajo futuro cuando el cliente lo pida.
+- **Edición inline** de productos y posts (hoy solo crear/eliminar).
+- **Storage de imágenes**: hoy se guardan como data URLs en la columna `image`/`cover`. Si las imágenes crecen mucho (>1 MB), conviene migrar a Supabase Storage con URL pública.
+- **Sanitización de markdown**: el contenido se renderiza con `marked` y se inyecta con `innerHTML`. Hoy el seed viene solo del SQL (sin input del admin), así que el riesgo XSS es bajo. Cuando se habilite admin con input de usuario, envolver la salida con `DOMPurify` antes del `innerHTML`.
 
 ---
 
@@ -404,8 +464,7 @@ Cargar con `import.meta.env` en código que corre server-side (`.astro` en modo 
 
 ### 11.1. CSS vanilla
 
-- Un archivo base en `src/styles/`: `styles.css` (público). `admin.css` aún no creado (admin en fase 2).
-- Variables compartidas en `src/styles/tokens.css` (importado por `styles.css`).
+- Archivos en `src/styles/`: `styles.css` (público) + `admin.css` (panel admin) + `tokens.css` (variables compartidas, importado por los dos).
 - Scope local permitido: `<style>` dentro de un `.astro` para overrides específicos.
 - **No** instalar Tailwind, Sass ni ningún preprocesador.
 
@@ -446,7 +505,7 @@ Deuda técnica no prioritaria. Las imágenes con caracteres raros en el nombre s
 
 ### 12.3. Hardening de credenciales
 
-Las credenciales del admin son conocidas. Se abordan en fase 2 con Supabase Auth. No tocar en fase 1.
+✅ **Hecho**: el admin ahora usa Supabase Auth. La contraseña se gestiona desde Supabase (no hardcoded). El usuario admin se crea en Authentication → Users.
 
 ### 12.4. `WA_PHONE`
 
@@ -454,13 +513,11 @@ Constante única. Cualquier URL `wa.me/` debe salir de `src/lib/whatsapp.ts`. **
 
 ### 12.5. `pnpm-workspace.yaml`
 
-Hay un archivo en la raíz del proyecto. Origen incierto (posible residual del starter). **No agregar paquetes al workspace** ni crear `packages/` hasta confirmar si esto es monorepo intencional o ruido. Si se confirma que es ruido, eliminarlo.
+Existe en la raíz del proyecto. **Tiene `packages: ['.']`** (requerido por pnpm 10+; si falta, el `pnpm install` falla con `ERROR packages field missing or empty`). No es un workspace real: solo declara la raíz como paquete único para que pnpm 10 valide. **No agregar más entradas** ni crear `packages/` a menos que se confirme intención de monorepo.
 
 ### 12.6. Migraciones de localStorage
 
-Cualquier cambio al schema de `Product` debe venir con:
-1. Función de migración en `src/lib/catalog.ts → migrateProducts(stored)`.
-2. Versionado de la clave si el cambio es incompatible (ej. `avilea_products_v2`).
+Ya no aplica. Productos y posts viven en Supabase. La sesión admin la maneja Supabase Auth (persistida automáticamente por `@supabase/supabase-js` en localStorage del browser; no se usa `avilea_products` ni `avilea_admin_session`).
 
 ### 12.7. Reveal animation bug
 
@@ -473,16 +530,24 @@ Cualquier cambio al schema de `Product` debe venir con:
 - Hero (`#sobre-nosotros` como anchor interno para deep-links).
 - Visión / cómo trabajamos (`#vision`) — grid de 2 columnas: prosa + 3 cards de pilares.
 - Galería (`#galeria`) — componente `Gallery.astro` con grid 1/2/3 cols (mobile/tablet/desktop) + lightbox fullscreen al click.
-- Blog (`#blog`) — listado de `DEFAULT_POSTS` en cards (`PostCard.astro`), 1/2/3 cols responsive.
+- Blog (`#blog`) — **posts desde Supabase** vía `fetchPosts()` en `src/lib/supabase-posts.ts` (anon + RLS `posts_public_read`). Render como cards (`PostCard.astro`) + modal fullscreen (`PostModal.astro`) al click.
 - CTA final oscuro (`#contactanos`) con WhatsApp.
 
-Posts viven en `src/lib/posts.ts` (`DEFAULT_POSTS`), mismo patrón que el catálogo. Cuando se implemente Supabase (fase 2), reemplazar el array por una query server-side — el resto del sitio no cambia. Las páginas individuales de post (`/blog/:slug`) aún no existen; los `href` ya apuntan ahí para cuando se creen.
+El modal escucha el custom event `post:open` (disparado por cada `PostCard` con `data-post`). El sitio público se recompone al deploy; el admin CRUD vive en `/admin#blog`.
 
 > **Nota sobre el reveal**: las nuevas secciones usan `data-reveal` (en vez de `.product-card` / `.section-head`). El `IntersectionObserver` de `Layout.astro` ya está extendido para aceptar `[data-reveal]` además de las clases legacy. Si agregás otro tipo de card animable, marcá el contenedor con `data-reveal` en vez de pedir cambios al layout.
 
 ### 12.9. Categorías placeholder
 
-Los productos default en las categorías `pregraduados`, `ninos` y `gastronomia` son placeholders genéricos ("Lente de Lectura", "Marco Infantil", "Producto Gastronomía"). Reemplazar cuando se defina el catálogo real.
+Los productos default en las categorías `pregraduados`, `ninos` y `gastronomia` son placeholders genéricos ("Lente de Lectura", "Marco Infantil", "Producto Gastronomía"). Reemplazar cuando se defina el catálogo real (vía admin).
+
+### 12.10. Base path (GitHub Pages subpath)
+
+El repo se deploya en `https://<owner>.github.io/avilea/`. `astro.config.mjs` define `base: '/avilea'`. **Todos** los assets, links y redirects concatenan con `import.meta.env.BASE_URL` (normalizado a `base/` con trailing slash). **Nunca** un path hardcodeado con `/` (ej. `src="/logo.webp"` o `href="/admin"` en JS) — se rompería el deploy en subpath.
+
+### 12.11. Public content = build-time snapshot
+
+El sitio público hace fetch a Supabase en el frontmatter. Eso significa que **el contenido se congela al deploy**. Cambios desde el admin (crear/eliminar producto o post, cambiar tasa USD) **no se reflejan en el sitio público hasta el próximo deploy**. Si se quiere ver un cambio inmediato, hay que pushear a `main` (o "Run workflow" en Actions).
 
 ---
 
@@ -494,18 +559,18 @@ Los productos default en las categorías `pregraduados`, `ninos` y `gastronomia`
 pnpm dev
 ```
 
-Levanta en `localhost:4321` con HMR.
+Levanta en `localhost:4321` con HMR. Sirve el sitio con la `base` correcta.
 
 ### 13.2. Build y preview
 
 ```sh
-pnpm build          # genera ./dist con SSR bundle
-pnpm preview        # sirve el bundle localmente
+pnpm build          # genera ./dist con bundle estático
+pnpm preview        # sirve ./dist localmente (sirve a subpath vacío; usar tunnel para probar con /avilea/)
 ```
 
-### 13.3. Reinicio de localStorage
+### 13.3. Resetear sesión admin
 
-Para probar la app desde cero: DevTools → Application → Local Storage → borrar `avilea_products` y `avilea_admin_session`.
+Para cerrar sesión: clic en "Cerrar sesión" en el panel. Para forzar logout: DevTools → Application → Local Storage → borrar las claves `sb-<project>-auth-token` (el cliente de Supabase las crea automáticamente).
 
 ---
 
@@ -517,7 +582,9 @@ Para probar la app desde cero: DevTools → Application → Local Storage → bo
 - Islas / framework components: https://docs.astro.build/en/guides/framework-components/
 - Content Collections: https://docs.astro.build/en/guides/content-collections/
 - Estilos: https://docs.astro.build/en/guides/styling/
-- `@astrojs/node`: https://docs.astro.build/en/guides/integrations-guide/node/
+- GitHub Pages: https://docs.github.com/en/pages
+- GitHub Actions (Pages): https://github.com/actions/deploy-pages
+- Supabase (JS client + Auth + RLS): https://supabase.com/docs/reference/javascript
 
 ---
 
@@ -525,13 +592,14 @@ Para probar la app desde cero: DevTools → Application → Local Storage → bo
 
 Si alguna de estas se rompe, está mal. No negociar sin pedir al usuario:
 
-1. **No cambiar** credenciales del admin, `WA_PHONE`, `WA_PHONE_ORDERS`, dirección de Ciego ("en el Cine Iriondo"), horario ni formato de moneda.
+1. **No cambiar** `WA_PHONE`, `WA_PHONE_ORDERS`, dirección de Ciego ("en el Cine Iriondo"), horario ni formato de moneda.
 2. **No introducir** Tailwind, Sass, Styled Components ni frameworks de CSS.
 3. **No romper** los breakpoints ni los IDs de sección del sitio público (`#inicio`, `#productos`, `#pedido`, `#contacto`).
-4. **No usar** `localStorage` para nada que no sea catálogo o sesión admin.
-5. **No persistir** pedidos del formulario en fase 1.
-6. **No agregar** paquetes al `pnpm-workspace.yaml`.
-7. **No tocar** credenciales ni keys de Supabase sin que el usuario las haya dado explícitamente.
+4. **No usar** `localStorage` para datos propios. Solo Supabase persiste catálogo/posts/sesión admin.
+5. **No persistir** pedidos del formulario en el backend (solo abre WhatsApp).
+6. **No agregar** paquetes al `pnpm-workspace.yaml` ni crear `packages/` (no es monorepo).
+7. **No usar** `service_role` key ni pedirla/almacenarla: todo va por `supabaseBrowser` + RLS.
 8. **Toda URL de WhatsApp** sale de `waLink()` (o `productWaLink` / `orderWaLink` / `defaultWaLink`).
-9. **Todo formato de precio** pasa por `formatPrice()`.
-10. Si el código entra en conflicto con este documento, **gana el código** y se actualiza el documento, no al revés.
+9. **Todo formato de precio** pasa por `formatPrice()`. **Toda fecha de post** pasa por `formatPostDate()`.
+10. **Todo path de asset/link/redirect** concatena con `import.meta.env.BASE_URL` (normalizado a `base/`). Nunca hardcodear `/`.
+11. Si el código entra en conflicto con este documento, **gana el código** y se actualiza el documento, no al revés.
