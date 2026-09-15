@@ -60,9 +60,9 @@ const MEDIAPIPE_VERSION = '0.10.18';
 const MEDIAPIPE_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}`;
 
 // Modelo bundleado en el sitio (descargado en paralelo con el resto, sin
-// dependencia de Google Storage en runtime). `BASE_URL` ya viene con
-// trailing slash (ej. '/avilea/'); si no, lo dejamos pasar tal cual.
-const MODEL_URL = `${import.meta.env.BASE_URL}mediapipe/face_landmarker.task`;
+// dependencia de Google Storage en runtime). Se normaliza BASE_URL a un solo
+// trailing slash para evitar concatenaciones tipo `/avileamediapipe/...`.
+const MODEL_URL = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/mediapipe/face_landmarker.task`;
 
 /** Callback opcional para reportar progreso de descarga del modelo (0..100). */
 export type ModelProgressCallback = (pct: number) => void;
