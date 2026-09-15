@@ -1274,8 +1274,9 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           const reader = new FileReader();
           reader.onload = (ev) => {
             const src = ev.target?.result as string;
-            compressToTarget(
+            processImageSrc(
               src,
+              originalKB,
               500,
               (dataUrl, finalKB) => {
                 currentPostImage = dataUrl;
@@ -1283,8 +1284,8 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                 preview!.hidden = false;
                 content!.hidden = true;
                 zone!.classList.add('has-image');
-                if (originalKB > 500 && finalKB < originalKB) {
-                  toast(`Imagen comprimida: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`);
+                if (finalKB < originalKB) {
+                  toast(`Imagen procesada: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`);
                 }
               },
               () => toast('No se pudo procesar la imagen', 'error')
@@ -1356,8 +1357,9 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           const reader = new FileReader();
           reader.onload = (ev) => {
             const src = ev.target?.result as string;
-            compressToTarget(
+            processImageSrc(
               src,
+              originalKB,
               500,
               (dataUrl, finalKB) => {
                 currentImage = dataUrl;
@@ -1365,9 +1367,9 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                 preview!.hidden = false;
                 content!.hidden = true;
                 zone!.classList.add('has-image');
-                if (originalKB > 500 && finalKB < originalKB) {
+                if (finalKB < originalKB) {
                   toast(
-                    `Imagen comprimida: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`
+                    `Imagen procesada: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`
                   );
                 }
               },
@@ -1381,6 +1383,87 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
       function fmtSize(kb: number): string {
         if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
         return `${kb} KB`;
+      }
+
+      /** Detecta si la imagen tiene transparencia sampleando pixels en un canvas chico. */
+      function hasTransparency(img: HTMLImageElement): boolean {
+        const sampleMax = 200;
+        const ratio = Math.min(1, sampleMax / Math.max(img.width, img.height));
+        const w = Math.max(1, Math.round(img.width * ratio));
+        const h = Math.max(1, Math.round(img.height * ratio));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return false;
+        ctx.drawImage(img, 0, 0, w, h);
+        const data = ctx.getImageData(0, 0, w, h).data;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] < 255) return true;
+        }
+        return false;
+      }
+
+      /** Punto de entrada del upload: detecta alfa y delega a PNG o JPEG. */
+      function processImageSrc(
+        src: string,
+        _originalKB: number,
+        targetKB: number,
+        cb: (dataUrl: string, finalKB: number) => void,
+        onError: () => void
+      ) {
+        const probe = new Image();
+        probe.onerror = onError;
+        probe.onload = () => {
+          if (hasTransparency(probe)) {
+            // Imagen con alfa: la pasamos a PNG en una sola pasada (sin
+            // pérdida de calidad). El formato JPEG destruiría la transparencia.
+            compressAsPng(src, cb, onError);
+          } else {
+            // Imagen opaca: compresión JPEG agresiva como antes.
+            compressToTarget(src, targetKB, cb, onError);
+          }
+        };
+        probe.src = src;
+      }
+
+      /** Redimensiona y emite PNG preservando el canal alfa. Sin compresión con pérdida. */
+      function compressAsPng(
+        src: string,
+        cb: (dataUrl: string, finalKB: number) => void,
+        onError: () => void
+      ) {
+        const img = new Image();
+        img.onerror = onError;
+        img.onload = () => {
+          const maxW = 1200;
+          const ratio = Math.min(1, maxW / img.width);
+          const w = Math.round(img.width * ratio);
+          const h = Math.round(img.height * ratio);
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            onError();
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) {
+                onError();
+                return;
+              }
+              const finalKB = Math.round(blob.size / 1024);
+              const r = new FileReader();
+              r.onload = () => cb(r.result as string, finalKB);
+              r.readAsDataURL(blob);
+            },
+            'image/png'
+          );
+        };
+        img.src = src;
       }
 
       /* Compresión multi-pasada: va bajando resolución y calidad hasta

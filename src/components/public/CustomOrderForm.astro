@@ -342,12 +342,18 @@ const tryOnProducts: Product[] = products.filter(
                       data-frame-id={p.id}
                       data-frame-name={p.name}
                       data-frame-price={p.price}
+                      data-frame-image={p.image ?? ''}
                       data-shape={p.shape}
                       data-color={p.color ?? '#0a1f5c'}
                       aria-checked="false"
                       role="radio"
                     >
-                      <span class="tryon-frame__thumb" set:html={renderShape(p.shape, p.color ?? '#0a1f5c')} />
+                      <span class="tryon-frame__thumb">
+                        {p.image
+                          ? <img src={p.image} alt="" loading="lazy" />
+                          : <Fragment set:html={renderShape(p.shape, p.color ?? '#0a1f5c')} />
+                        }
+                      </span>
                       <span class="tryon-frame__name">{p.name}</span>
                     </button>
                   </li>
@@ -504,6 +510,13 @@ const tryOnProducts: Product[] = products.filter(
     max-height: 100%;
     width: auto;
     height: auto;
+  }
+  .armadura-card__thumb :global(img) {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
   }
   .armadura-card__info { min-width: 0; }
   .armadura-card__name {
@@ -925,6 +938,7 @@ const tryOnProducts: Product[] = products.filter(
     filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.25));
   }
   .tryon-frame-overlay :global(svg) { width: 100%; height: auto; display: block; }
+  .tryon-frame-overlay :global(img) { width: 100%; height: auto; display: block; }
   .tryon-hint {
     position: absolute;
     bottom: 12px;
@@ -1106,6 +1120,13 @@ const tryOnProducts: Product[] = products.filter(
     height: 100%;
     max-width: 72px;
     max-height: 40px;
+  }
+  .tryon-frame__thumb :global(img) {
+    width: 100%;
+    height: 100%;
+    max-width: 72px;
+    max-height: 40px;
+    object-fit: contain;
   }
   .tryon-frame__name {
     font-size: 13px;
@@ -1540,8 +1561,15 @@ const tryOnProducts: Product[] = products.filter(
         });
         const thumb = btn.querySelector<HTMLElement>('.tryon-frame__thumb');
         const color = btn.dataset.color || '#0a1f5c';
-        const svg = thumb?.innerHTML ?? '';
-        overlay.innerHTML = svg;
+        const imageSrc = btn.dataset.frameImage || '';
+        // Preferimos la imagen real del producto si está cargada (PNG
+        // transparente). Si no, caemos al SVG generado por forma+color.
+        if (imageSrc) {
+          overlay.innerHTML = `<img src="${escapeHtmlAttr(imageSrc)}" alt="" />`;
+        } else {
+          const svg = thumb?.innerHTML ?? '';
+          overlay.innerHTML = svg;
+        }
         overlay.style.setProperty('--frame-color', color);
         const name = btn.querySelector<HTMLElement>('.tryon-frame__name')?.textContent?.trim();
         if (name && titleEl) titleEl.textContent = name;
@@ -1549,6 +1577,13 @@ const tryOnProducts: Product[] = products.filter(
         syncArmaduraFromTryon(id);
         // Centrar la selección en el rail.
         btn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+
+      /** Escapa comillas y & para usar en atributos HTML seteados vía innerHTML. */
+      function escapeHtmlAttr(s: string): string {
+        return s.replace(/[&"<>]/g, (c) =>
+          ({ '&': '&amp;', '"': '&quot;', '<': '&lt;', '>': '&gt;' }[c] as string)
+        );
       }
 
       function checkRailOverflow() {
