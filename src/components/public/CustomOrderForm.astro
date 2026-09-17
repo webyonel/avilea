@@ -979,11 +979,18 @@ const tryOnProducts: Product[] = products.filter(
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(10, 31, 92, 0.18);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
+    background: rgba(10, 31, 92, 0.55);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
     z-index: 3;
     pointer-events: none;
+  }
+  /* El overlay de la armadura no debe verse hasta que la detección
+   * corra y le asigne una posición real sobre los ojos. Antes de eso
+   * quedaría flotando en su posición CSS default (top:32%, width:56%)
+   * y se ve horrible sobre el canvas en carga. */
+  .tryon-canvas.is-detecting .tryon-frame-overlay {
+    opacity: 0;
   }
   .tryon-detect-indicator {
     position: absolute;
@@ -991,58 +998,42 @@ const tryOnProducts: Product[] = products.filter(
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 4;
-    width: min(320px, calc(100% - 32px));
-    padding: 22px 22px 18px;
-    background: rgba(255, 255, 255, 0.98);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
     text-align: center;
+    color: var(--white);
+    text-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
   }
   .tryon-detect-indicator[hidden] { display: none; }
-  .tryon-detect-indicator__icon {
-    width: 52px;
-    height: 52px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--primary-soft);
-    color: var(--primary);
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .tryon-detect-indicator__icon svg { width: 26px; height: 26px; }
   .tryon-detect-indicator__title {
     margin: 0;
     font-size: 15px;
-    font-weight: 700;
-    color: var(--ink);
-    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: 0.3px;
   }
-  .tryon-detect-indicator__label {
+  .tryon-detect-indicator__percent {
     margin: 0;
-    font-size: 13px;
-    color: var(--ink-soft);
-    min-height: 18px;
-    line-height: 1.35;
+    font-size: 56px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: -1.5px;
   }
   .tryon-detect-indicator__progress {
-    width: 100%;
-    height: 6px;
-    background: var(--bg);
-    border: 1px solid var(--line);
+    width: min(220px, 60%);
+    height: 4px;
+    background: rgba(255, 255, 255, 0.22);
     border-radius: 999px;
     overflow: hidden;
-    margin-top: 2px;
+    margin-top: 4px;
   }
   .tryon-detect-indicator__bar {
     height: 100%;
     width: 0;
-    background: linear-gradient(90deg, var(--primary) 0%, var(--primary-2) 100%);
+    background: var(--white);
     border-radius: 999px;
     transition: width 0.2s var(--ease);
   }
@@ -1053,24 +1044,6 @@ const tryOnProducts: Product[] = products.filter(
   @keyframes tryon-progress-indet {
     0%   { transform: translateX(-120%); }
     100% { transform: translateX(320%); }
-  }
-  .tryon-detect-indicator__hint {
-    margin: 2px 0 0;
-    font-size: 11px;
-    color: var(--ink-mute);
-    letter-spacing: 0.2px;
-  }
-  .tryon-spinner {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    border: 2px solid var(--primary-soft);
-    border-top-color: var(--primary);
-    animation: tryon-spin 0.8s linear infinite;
-    flex-shrink: 0;
-  }
-  @keyframes tryon-spin {
-    to { transform: rotate(360deg); }
   }
 
   /* Mensaje "no detectamos una cara" cuando falla la detección. */
@@ -1502,20 +1475,12 @@ const tryOnProducts: Product[] = products.filter(
           indicator.className = 'tryon-detect-indicator';
           indicator.setAttribute('role', 'status');
           indicator.setAttribute('aria-live', 'polite');
-          indicator.innerHTML = `
-            <div class="tryon-detect-indicator__icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                <circle cx="12" cy="13" r="4"/>
-              </svg>
-            </div>
-            <p class="tryon-detect-indicator__title">Preparando el probador</p>
-            <p class="tryon-detect-indicator__label" data-detect-label>…</p>
-            <div class="tryon-detect-indicator__progress" aria-hidden="true">
-              <div class="tryon-detect-indicator__bar" data-detect-bar></div>
-            </div>
-            <p class="tryon-detect-indicator__hint">Tu foto no sale de tu dispositivo.</p>
-          `;
+          indicator.innerHTML =
+            '<p class="tryon-detect-indicator__title">Procesando imagen</p>' +
+            '<p class="tryon-detect-indicator__percent" data-detect-percent>0%</p>' +
+            '<div class="tryon-detect-indicator__progress" aria-hidden="true">' +
+              '<div class="tryon-detect-indicator__bar" data-detect-bar></div>' +
+            '</div>';
           canvas.appendChild(indicator);
         }
         return indicator;
@@ -1530,7 +1495,7 @@ const tryOnProducts: Product[] = products.filter(
           indicator.hidden = false;
         } else {
           indicator.hidden = true;
-          // Resetear barra y modo indeterminado para la próxima corrida.
+          // Resetear barra para la próxima corrida.
           const bar = indicator.querySelector<HTMLElement>('[data-detect-bar]');
           if (bar) {
             bar.classList.remove('is-indeterminate');
@@ -1539,29 +1504,25 @@ const tryOnProducts: Product[] = products.filter(
         }
       }
 
-      function setIndicatorTitle(text: string) {
+      /**
+       * Actualiza el porcentaje mostrado y la barra.
+       * Si `indeterminate` es true, muestra "…" en vez de número y la barra
+       * pasa a animación indeterminada (usado durante init/detect donde no
+       * podemos medir progreso real).
+       */
+      function setIndicatorPercent(pct: number, indeterminate = false) {
         const indicator = ensureIndicator();
-        const el = indicator?.querySelector<HTMLElement>('.tryon-detect-indicator__title');
-        if (el) el.textContent = text;
-      }
-
-      function setIndicatorLabel(text: string) {
-        const indicator = ensureIndicator();
-        const el = indicator?.querySelector<HTMLElement>('[data-detect-label]');
-        if (el) el.textContent = text;
-      }
-
-      /** pct en 0..100. Si `indeterminate`, muestra una barra animada sin porcentaje. */
-      function setIndicatorProgress(pct: number, indeterminate = false) {
-        const indicator = ensureIndicator();
+        const percentEl = indicator?.querySelector<HTMLElement>('[data-detect-percent]');
         const bar = indicator?.querySelector<HTMLElement>('[data-detect-bar]');
-        if (!bar) return;
+        if (!percentEl || !bar) return;
         if (indeterminate) {
+          percentEl.textContent = '…';
           bar.classList.add('is-indeterminate');
           bar.style.width = '';
         } else {
+          const clamped = Math.max(0, Math.min(100, Math.round(pct)));
+          percentEl.textContent = `${clamped}%`;
           bar.classList.remove('is-indeterminate');
-          const clamped = Math.max(0, Math.min(100, pct));
           bar.style.width = `${clamped}%`;
         }
       }
@@ -1589,9 +1550,7 @@ const tryOnProducts: Product[] = products.filter(
         // (con o sin éxito). Así no se ve la cara "sola" mientras el
         // detector corre, y aparece ya lista con el overlay encima.
         photo.classList.add('is-loading');
-        setIndicatorTitle('Preparando el probador');
-        setIndicatorLabel('Empezando…');
-        setIndicatorProgress(0);
+        setIndicatorPercent(0);
 
         // Asegurarnos de que la imagen ya tiene dimensiones (onload previo).
         if (!photo.complete || photo.naturalWidth === 0) {
@@ -1606,25 +1565,20 @@ const tryOnProducts: Product[] = products.filter(
           });
         }
 
-        // Callback de progreso: actualiza el indicador mientras se baja / inicializa el modelo.
-        // Si el modelo ya estaba precargado, estos callbacks apenas se ejecutan.
+        // Callback de progreso: actualiza % y barra mientras se baja el
+        // modelo. Si ya estaba precargado, apenas se ejecuta.
         const onProgress = (pct: number) => {
           if (pct < 100) {
-            setIndicatorLabel(`Descargando modelo… ${pct}%`);
-            setIndicatorProgress(pct);
+            setIndicatorPercent(pct);
           } else {
-            setIndicatorLabel('Inicializando detector…');
-            setIndicatorProgress(100, true);
+            setIndicatorPercent(100, true);
           }
         };
 
         const result = await detectFaceInPhoto(photo, onProgress);
 
-        // Última fase: análisis de la foto. Barra indeterminada porque no
-        // podemos medir el progreso del `detect()` real.
-        setIndicatorTitle('Casi listo');
-        setIndicatorLabel('Analizando tu foto…');
-        setIndicatorProgress(100, true);
+        // Última fase (análisis de la foto): sin progreso medible.
+        setIndicatorPercent(100, true);
 
         // Detección terminada (éxito o no). Revelamos la foto y limpiamos
         // el indicador.
