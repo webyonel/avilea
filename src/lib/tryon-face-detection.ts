@@ -56,6 +56,12 @@ const LM = {
 // con algo de holgura lateral (las patillas sobresalen).
 const EYE_DISTANCE_TO_OVERLAY_WIDTH = 2.6;
 
+// Ajuste vertical: centrado puro sobre el midpoint de los ojos tiende a
+// dejar el marco un toque bajo (la patilla del marco sobresale más arriba
+// que abajo). Restamos un pequeño porcentaje de la altura de la imagen para
+// que el marco quede un poco más arriba de los ojos, más natural.
+const GLASSES_VERTICAL_OFFSET = 0.025;
+
 const MEDIAPIPE_VERSION = '0.10.18';
 const MEDIAPIPE_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}`;
 
@@ -253,7 +259,7 @@ export function computeOverlayPosition(
   const leftOuter = landmarks[LM.LEFT_OUTER];
 
   const eyeMidX = (rightOuter.x + leftOuter.x) / 2;
-  const eyeMidY = (rightOuter.y + leftOuter.y) / 2;
+  const eyeMidY = (rightOuter.y + leftOuter.y) / 2 - GLASSES_VERTICAL_OFFSET;
 
   // Distancia entre los ojos (normalizada → píxeles de imagen).
   const eyeDistNorm = Math.hypot(
