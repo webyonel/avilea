@@ -57,9 +57,8 @@ const LM = {
 // entre las esquinas exteriores de los ojos (landmarks 33 y 263) es
 // ~60-65mm; el frente del marco suele medir ~110-120mm de lente a lente,
 // así que el ratio realista está cerca de 1.7-1.8x. Antes era 2.6 y
-// quedaba gigante. Si querés ajustar fino, probá con 1.5 (más chico)
-// o 1.9 (más ancho).
-const EYE_DISTANCE_TO_OVERLAY_WIDTH = 1.6;
+// quedaba gigante; calibrado a 2.1 tras probar con una cara real.
+const EYE_DISTANCE_TO_OVERLAY_WIDTH = 2.3;
 
 // Ajuste vertical: centrado puro sobre el midpoint de los ojos tiende a
 // dejar el marco un toque bajo (la patilla del marco sobresale más arriba
