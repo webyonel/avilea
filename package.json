@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@astrojs/node": "^11.1.5",
+    "@astrojs/sitemap": "^3.6.1",
     "@supabase/supabase-js": "^2.116.0",
     "astro": "^7.3.2",
     "marked": "^18.0.13"

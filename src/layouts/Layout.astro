@@ -2,21 +2,101 @@
 // src/layouts/Layout.astro
 // Shell del sitio público: head, fuentes, Navbar, Footer, WA float.
 // Incluye scripts globales (nav scroll, mobile menu, smooth scroll, reveal).
+//
+// SEO: Open Graph + Twitter Cards + canonical + JSON-LD LocalBusiness.
+// El sitio es estático (output: 'static'), así que cada página materializa
+// sus meta tags al build a partir de los props y de `Astro.site` (configurado
+// en astro.config.mjs → SITE_URL / site).
 
 import '../styles/styles.css';
 import Navbar from '../components/public/Navbar.astro';
 import Footer from '../components/public/Footer.astro';
 import WhatsAppFloat from '../components/public/WhatsAppFloat.astro';
+import { LOCATIONS, SCHEDULE_LABEL } from '../lib/contact';
 
 interface Props {
   title?: string;
   description?: string;
+  /** Ruta pública (con BASE_URL) de la imagen para OG/Twitter. Default: /og-image.png. */
+  ogImage?: string;
+  /** Tipo de recurso OG. Default: website. Páginas individuales: article. */
+  ogType?: 'website' | 'article' | 'profile';
+  /** Si true, agrega noindex,nofollow (útil para /admin). */
+  noindex?: boolean;
+  /** URL canónica absoluta. Default: la URL actual de la página (Astro.url). */
+  canonical?: string;
 }
 
 const {
   title = 'Avilea · Óptica y Visión',
-  description = 'Avilea - Tienda oftalmológica en Ciego de Ávila. Armaduras graduadas, lentes de contacto y lentes de sol. Calidad óptica al alcance de todos.',
+  description = 'Avilea es una óptica familiar en Cuba con locales en Ciego de Ávila, Ciro Redondo y Morón. Armaduras graduadas a medida, atención personalizada y cristales hechos en laboratorio propio.',
+  ogImage,
+  ogType = 'website',
+  noindex = false,
+  canonical,
 } = Astro.props;
+
+// BASE_URL siempre termina sin "/" en el config; agregamos "/" para concatenar.
+const base = `${(import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')}/`;
+const siteOrigin = Astro.site?.origin ?? '';
+
+// URL canónica: por defecto la URL actual de la página (Astro.url ya es absoluta
+// porque respeta `site` + `base`). Si la pasan por prop, gana.
+const canonicalUrl = canonical ?? Astro.url.href;
+
+// OG image: si la pasan relativa, la absolutamos usando el origin del sitio.
+const ogImagePath = ogImage ?? `${base}og-image.png`;
+const ogImageUrl = ogImagePath.startsWith('http')
+  ? ogImagePath
+  : `${siteOrigin}${ogImagePath}`;
+
+// Idioma y nombre del sitio para OG.
+const siteName = 'Avilea Óptica';
+const locale = 'es_CU';
+
+// JSON-LD: schema LocalBusiness con los 3 locales como sub-LocalBusiness
+// (departments). Esto ayuda a Google a entender que es un negocio físico con
+// múltiples sucursales y a mostrar info rica en búsquedas locales.
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Optician',
+  '@id': `${siteOrigin}${base}#business`,
+  name: siteName,
+  description,
+  url: `${siteOrigin}${base}`,
+  image: ogImageUrl,
+  logo: `${siteOrigin}${base}logo.webp`,
+  telephone: '+53 524 516 26',
+  priceRange: 'MN$',
+  address: LOCATIONS.filter((l) => l.address).map((l) => ({
+    '@type': 'PostalAddress',
+    streetAddress: l.address,
+    addressLocality: l.name,
+    addressCountry: 'CU',
+  })),
+  openingHoursSpecification: [
+    {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      opens: '09:00',
+      closes: '18:00',
+    },
+  ],
+  department: LOCATIONS.filter((l) => l.address).map((l) => ({
+    '@type': 'LocalBusiness',
+    name: `Avilea · ${l.name}`,
+    telephone: l.display,
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: l.address,
+      addressLocality: l.name,
+      addressCountry: 'CU',
+    },
+  })),
+  sameAs: [
+    // Redes sociales. Vacío hasta que el cliente las tenga; queda como TODO.
+  ],
+};
 ---
 
 <!doctype html>
@@ -24,12 +104,55 @@ const {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/webp" href={`${import.meta.env.BASE_URL.replace(/\/$/, '')}/logo.webp`} />
+
+    {/* ============ TÍTULO Y DESCRIPCIÓN ============ */}
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="author" content="Avilea Óptica" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#0a1f5c" />
+    <meta name="format-detection" content="telephone=yes" />
+    <meta name="geo.region" content="CU" />
+    <meta name="geo.placename" content="Ciego de Ávila, Cuba" />
+
+    {/* ============ ROBOTS / CANONICAL ============ */}
+    <meta
+      name="robots"
+      content={noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large'}
+    />
+    <link rel="canonical" href={canonicalUrl} />
+
+    {/* ============ FAVICON ============ */}
+    <link rel="icon" type="image/webp" href={`${base}logo.webp`} />
+    <link rel="apple-touch-icon" href={`${base}logo.webp`} />
+
+    {/* ============ OPEN GRAPH (Facebook, LinkedIn, WhatsApp, Telegram, etc.) ============ */}
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:locale" content={locale} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={title} />
+    <meta property="og:image:type" content="image/png" />
+
+    {/* ============ TWITTER CARDS ============ */}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content={title} />
+
+    {/* ============ FUENTES ============ */}
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+
+    {/* ============ JSON-LD (LocalBusiness / Optician) ============ */}
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
   </head>
   <body>
     <Navbar />

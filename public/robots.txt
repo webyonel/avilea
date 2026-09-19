@@ -1,0 +1,12 @@
+# robots.txt — Avilea
+# Permite indexar todo el sitio público. Bloquea /admin y /admin/login.
+# Referencia al sitemap para que los crawlers lo descubran.
+
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+
+# Sitemap: URL absoluta (los crawlers la prefieren sobre la relativa).
+# Se sirve desde la raíz del sitio (concatenada con BASE_URL al construir).
+Sitemap: /avilea/sitemap-index.xml

@@ -549,7 +549,23 @@ El repo se deploya en `https://<owner>.github.io/avilea/`. `astro.config.mjs` de
 
 El sitio público hace fetch a Supabase en el frontmatter. Eso significa que **el contenido se congela al deploy**. Cambios desde el admin (crear/eliminar producto o post, cambiar tasa USD) **no se reflejan en el sitio público hasta el próximo deploy**. Si se quiere ver un cambio inmediato, hay que pushear a `main` (o "Run workflow" en Actions).
 
----
+### 12.12. SEO
+
+- **`public/og-image.png`** (1200×630, 290 KB): preview compartido en redes. Lo regenera `scripts/build_og_image.py` (PIL + fuentes DejaVu). Para volver a generarlo: `python3 scripts/build_og_image.py`. Si cambia logo o mascota, regenerar.
+- **`public/robots.txt`**: permite todo, bloquea `/admin` y `/admin/`, referencia el sitemap con ruta relativa (`/avilea/sitemap-index.xml`).
+- **`@astrojs/sitemap`** (`astro.config.mjs`): genera `dist/sitemap-index.xml` + `dist/sitemap-0.xml` automáticamente. El filtro excluye `/admin` y `/admin/login`. Las URLs son absolutas porque `site` está configurado.
+- **`site` en astro.config.mjs**: por defecto `https://webyonel.github.io/avilea` (GitHub Pages del repo). Override con env `SITE_URL` si hay dominio propio (ej. `https://avilea.cu`). Lo usan canonical y OG/Twitter.
+- **`src/layouts/Layout.astro`**: recibe `title`, `description`, `ogImage`, `ogType`, `noindex`, `canonical` por props. Emite:
+  - `<title>`, `<meta name="description">`, author, generator, theme-color, format-detection, geo.
+  - `<link rel="canonical">`, `<link rel="icon">`, apple-touch-icon.
+  - Open Graph completo (`og:site_name`, `og:locale` = `es_CU`, `og:type`, `og:title`, `og:description`, `og:url`, `og:image` absoluto + width/height/alt/type).
+  - Twitter Cards (`summary_large_image`, title, description, image, alt).
+  - **JSON-LD** `Optician` con los 3 locales como `department` `LocalBusiness`, horarios `Lun-Sáb 9:00–18:00`, `priceRange: MN$`, `telephone`, `address`, `sameAs` (vacío hasta que existan redes).
+- **Páginas admin** (`/admin`, `/admin/login`): agregaron `<meta name="robots" content="noindex, nofollow">` para que Google no las indexe.
+- **Per-page**: `index.astro` pasa título/description específicos; `sobre-nosotros.astro` pasa `ogType="article"`. El resto hereda los defaults del Layout.
+- **Posicionamiento local**: el JSON-LD `Optician` + 3 `LocalBusiness` department + geo meta + dirección completa del Ciego (con "Cine-Teatro Iriondo") están pensados para búsquedas locales en Cuba ("óptica Ciego de Ávila", etc.).
+
+
 
 ## 13. Cómo desarrollar
 
@@ -603,3 +619,4 @@ Si alguna de estas se rompe, está mal. No negociar sin pedir al usuario:
 9. **Todo formato de precio** pasa por `formatPrice()`. **Toda fecha de post** pasa por `formatPostDate()`.
 10. **Todo path de asset/link/redirect** concatena con `import.meta.env.BASE_URL` (normalizado a `base/`). Nunca hardcodear `/`.
 11. Si el código entra en conflicto con este documento, **gana el código** y se actualiza el documento, no al revés.
+12. **SEO**: no inventar URLs en meta tags (`og:image`, `og:url`, canonical). Siempre salen de `Astro.site + base` o `Astro.url`. Si agregás una página, pasale `title`/`description` específicos al Layout (no heredar genéricos). Las páginas admin van con `noindex, nofollow`. La imagen OG (`public/og-image.png`) se regenera con `python3 scripts/build_og_image.py` solo si cambia logo/mascota — no a cada build.
