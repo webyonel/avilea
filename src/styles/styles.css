@@ -715,7 +715,7 @@ button { font: inherit; cursor: pointer; border: none; background: none; color: 
     border-bottom: 1px solid var(--line);
     box-shadow: var(--shadow-md);
   }
-  .hero-mascot { max-width: 320px; }
+  .hero-mascot { display: none; }
   .hero-stats { gap: 24px; }
   .stat-num { font-size: 1.5rem; }
   .hero-cta .btn { width: 100%; }

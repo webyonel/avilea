@@ -13,6 +13,7 @@ import {
 } from '../../lib/orders';
 import { DEFAULT_PRODUCTS, type Product, type Shape } from '../../lib/catalog';
 import { renderShape } from '../../lib/svgShapes';
+import { formatPrice } from '../../lib/format';
 
 interface Props {
   products?: Product[];
@@ -27,6 +28,14 @@ const FRAME_SHAPES: readonly Shape[] = [
 const tryOnProducts: Product[] = products.filter(
   (p): p is Product & { shape: Shape } =>
     typeof p.shape === 'string' && (FRAME_SHAPES as readonly string[]).includes(p.shape),
+);
+
+// Productos del catálogo que se pueden elegir desde el formulario sin usar
+// el probador virtual. Excluye `pregraduados` (lentes de lectura listos, no
+// armaduras a medida): el cliente que pide espejuelos a medida ya tiene
+// graduación, no le aplica un lente pregraduado.
+const catalogFrames: Product[] = products.filter(
+  (p) => p.category !== 'pregraduados',
 );
 ---
 
@@ -90,8 +99,80 @@ const tryOnProducts: Product[] = products.filter(
         </div>
 
         <p class="armadura-hint" data-armadura-hint>
-          Sin selección. Probá las armaduras arriba con el probador virtual y elegí la tuya antes de mandar el pedido.
+          Sin selección. Elegí una armadura del catálogo de abajo o probá las armaduras arriba con el probador virtual.
         </p>
+
+        <div class="armadura-custom-select" data-armadura-select-wrap>
+          <button
+            type="button"
+            class="armadura-custom-select__trigger"
+            data-armadura-select-trigger
+            aria-haspopup="listbox"
+            aria-expanded="false"
+          >
+            <span class="armadura-custom-select__thumb" data-armadura-select-thumb aria-hidden="true"></span>
+            <span class="armadura-custom-select__info">
+              <span class="armadura-custom-select__name" data-armadura-select-name>
+                Elegí una armadura del catálogo
+              </span>
+              <span class="armadura-custom-select__price" data-armadura-select-price>
+                o usá el probador arriba
+              </span>
+            </span>
+            <span class="armadura-custom-select__chevron" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </span>
+          </button>
+
+          <ul
+            class="armadura-custom-select__menu"
+            role="listbox"
+            data-armadura-select-menu
+            aria-label="Armaduras del catálogo"
+            hidden
+          >
+            {catalogFrames.map((p) => {
+              const hasFrameThumb = p.image
+                || (p.shape && (FRAME_SHAPES as readonly string[]).includes(p.shape));
+              return (
+                <li>
+                  <button
+                    type="button"
+                    role="option"
+                    class="armadura-custom-select__option"
+                    data-armadura-option
+                    data-value={p.id}
+                    data-name={p.name}
+                    data-price={String(p.price)}
+                    data-shape={p.shape ?? ''}
+                    data-color={p.color ?? '#0a1f5c'}
+                    data-image={p.image ?? ''}
+                    aria-selected="false"
+                  >
+                    <span class="armadura-custom-select__thumb" aria-hidden="true">
+                      {p.image ? (
+                        <img src={p.image} alt="" loading="lazy" />
+                      ) : hasFrameThumb ? (
+                        <Fragment set:html={renderShape(p.shape as Shape, p.color ?? '#0a1f5c')} />
+                      ) : null}
+                    </span>
+                    <span class="armadura-custom-select__info">
+                      <span class="armadura-custom-select__name">{p.name}</span>
+                      <span class="armadura-custom-select__price">{formatPrice(p.price)} MN</span>
+                    </span>
+                    <span class="armadura-custom-select__check" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
 
         <input type="hidden" name="armaduraId" data-armadura-id value="" />
         <input type="hidden" name="armaduraNombre" data-armadura-manual-name value="" />
@@ -579,6 +660,203 @@ const tryOnProducts: Product[] = products.filter(
     line-height: 1.5;
   }
   .armadura-hint[hidden] { display: none; }
+
+  .armadura-custom-select {
+    position: relative;
+    margin: 0 0 14px;
+  }
+
+  /* Trigger: card-like button */
+  .armadura-custom-select__trigger {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    font: inherit;
+    text-align: left;
+    background: var(--bg);
+    border: 1.5px dashed var(--line);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color .2s var(--ease), background .2s var(--ease),
+                box-shadow .2s var(--ease), color .2s var(--ease);
+    color: var(--ink-mute);
+  }
+  .armadura-custom-select__trigger:hover {
+    border-color: var(--primary);
+    background: var(--white);
+    color: var(--ink-soft);
+  }
+  .armadura-custom-select__trigger:focus-visible {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(28, 31, 92, 0.12);
+  }
+  .armadura-custom-select__trigger[aria-expanded="true"] {
+    border-style: solid;
+    border-color: var(--primary);
+    background: var(--white);
+    color: var(--ink);
+    box-shadow: 0 0 0 3px rgba(10, 31, 92, 0.1);
+  }
+  .armadura-custom-select--selected .armadura-custom-select__trigger {
+    border-style: solid;
+    border-color: var(--primary);
+    background: var(--white);
+    color: var(--ink);
+  }
+
+  /* Thumb (trigger + option) */
+  .armadura-custom-select__thumb {
+    width: 56px;
+    height: 32px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm, 6px);
+    padding: 3px;
+  }
+  .armadura-custom-select__thumb:empty {
+    border-style: dashed;
+    background: transparent;
+  }
+  .armadura-custom-select__thumb :global(svg) {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    display: block;
+  }
+  .armadura-custom-select__thumb :global(img) {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    display: block;
+  }
+
+  /* Info (name + price) */
+  .armadura-custom-select__info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .armadura-custom-select__name {
+    font-size: 15px;
+    font-weight: 600;
+    color: inherit;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .armadura-custom-select__price {
+    font-size: 13px;
+    color: var(--primary);
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  /* Cuando NO hay selección, el segundo renglón es un hint, no un precio.
+     Lo estilizamos más suave para que no parezca un precio. */
+  .armadura-custom-select:not(.armadura-custom-select--selected) .armadura-custom-select__price {
+    color: var(--ink-mute);
+    font-weight: 400;
+  }
+
+  /* Chevron rotado al abrir */
+  .armadura-custom-select__chevron {
+    flex-shrink: 0;
+    color: var(--ink-mute);
+    transition: transform .2s var(--ease), color .2s var(--ease);
+    display: inline-flex;
+  }
+  .armadura-custom-select__trigger[aria-expanded="true"] .armadura-custom-select__chevron {
+    transform: rotate(180deg);
+    color: var(--primary);
+  }
+
+  /* Menú flotante */
+  .armadura-custom-select__menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 30;
+    margin: 0;
+    padding: 6px;
+    list-style: none;
+    background: var(--white);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-lg);
+    max-height: 320px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    animation: armadura-select-pop .18s var(--ease);
+  }
+  .armadura-custom-select__menu[hidden] { display: none; }
+  @keyframes armadura-select-pop {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .armadura-custom-select__menu > li { margin: 0; }
+
+  .armadura-custom-select__option {
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 12px;
+    font: inherit;
+    text-align: left;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    color: var(--ink);
+    transition: background .15s var(--ease);
+  }
+  .armadura-custom-select__option:hover,
+  .armadura-custom-select__option:focus-visible {
+    background: var(--primary-soft);
+    outline: none;
+  }
+  .armadura-custom-select__option[aria-selected="true"] {
+    background: var(--primary-soft);
+  }
+  .armadura-custom-select__option .armadura-custom-select__thumb {
+    width: 48px;
+    height: 28px;
+  }
+  .armadura-custom-select__option .armadura-custom-select__name {
+    font-size: 14px;
+  }
+  .armadura-custom-select__option .armadura-custom-select__price {
+    font-size: 13px;
+  }
+
+  /* Check (visible solo en la opción seleccionada) */
+  .armadura-custom-select__check {
+    flex-shrink: 0;
+    color: var(--primary);
+    opacity: 0;
+    transform: scale(.7);
+    transition: opacity .15s var(--ease), transform .15s var(--ease);
+    display: inline-flex;
+  }
+  .armadura-custom-select__option[aria-selected="true"] .armadura-custom-select__check {
+    opacity: 1;
+    transform: scale(1);
+  }
   .choices-row {
     display: flex;
     flex-wrap: wrap;
@@ -1689,6 +1967,8 @@ const tryOnProducts: Product[] = products.filter(
     applyOverlayPosition,
     resetOverlayPosition,
   } from '../../lib/tryon-face-detection';
+  import { renderShape } from '../../lib/svgShapes';
+  import type { Shape } from '../../lib/catalog';
 
   // Preload del modelo apenas carga la página: el usuario va a tener el
   // modelo cacheado para cuando abra el modal y suba la foto (no siente la
@@ -1737,6 +2017,34 @@ const tryOnProducts: Product[] = products.filter(
       const armaduraManualPrice = orderForm?.querySelector<HTMLInputElement>('[data-armadura-manual-price]');
       const armaduraClearBtn = orderForm?.querySelector<HTMLButtonElement>('[data-armadura-clear]');
 
+      // Custom select (trigger + menú flotante) — reemplaza al <select> nativo.
+      const armaduraSelectWrap = orderForm?.querySelector<HTMLElement>('[data-armadura-select-wrap]');
+      const armaduraSelectTrigger = orderForm?.querySelector<HTMLButtonElement>('[data-armadura-select-trigger]');
+      const armaduraSelectThumb = orderForm?.querySelector<HTMLElement>('[data-armadura-select-thumb]');
+      const armaduraSelectName = orderForm?.querySelector<HTMLElement>('[data-armadura-select-name]');
+      const armaduraSelectPrice = orderForm?.querySelector<HTMLElement>('[data-armadura-select-price]');
+      const armaduraSelectMenu = orderForm?.querySelector<HTMLElement>('[data-armadura-select-menu]');
+      const armaduraSelectOptions = orderForm?.querySelectorAll<HTMLButtonElement>('[data-armadura-option]');
+
+      // Shapes válidas para renderizar SVG de armadura en el thumb de la card.
+      // Si el producto elegido del catálogo no es una armadura (ej. accesorio),
+      // mostramos solo nombre + precio sin thumb.
+      const FRAME_SHAPES_RUNTIME: readonly string[] = [
+        'round', 'cat', 'rect', 'square', 'rimless', 'aviator', 'wayfarer',
+      ];
+
+      /** Pinta el thumb del trigger con imagen real o SVG por forma. */
+      function setTriggerThumb(image: string, shape: string, color: string) {
+        if (!armaduraSelectThumb) return;
+        let html = '';
+        if (image) {
+          html = `<img src="${escapeHtmlAttr(image)}" alt="" />`;
+        } else if (shape && FRAME_SHAPES_RUNTIME.includes(shape)) {
+          html = renderShape(shape as Shape, color);
+        }
+        armaduraSelectThumb.innerHTML = html;
+      }
+
       function syncArmaduraFromTryon(id: string) {
         const btn = modal.querySelector<HTMLButtonElement>(
           `.tryon-frame[data-frame-id="${CSS.escape(id)}"]`,
@@ -1748,6 +2056,9 @@ const tryOnProducts: Product[] = products.filter(
         const priceStr = Number.isFinite(priceNum) && priceNum > 0
           ? priceNum.toLocaleString('es-ES')
           : priceRaw;
+        const shape = btn.dataset.shape || '';
+        const color = btn.dataset.color || '#0a1f5c';
+        const image = btn.dataset.frameImage || '';
 
         // ID oculto
         armaduraIdInput.value = id;
@@ -1761,6 +2072,17 @@ const tryOnProducts: Product[] = products.filter(
         // Autofill de los inputs manuales (el cliente puede editarlos si quiere)
         if (armaduraManualName) armaduraManualName.value = name;
         if (armaduraManualPrice && priceStr) armaduraManualPrice.value = priceStr;
+        // Reflejar la selección en el trigger del custom select
+        if (armaduraSelectName) armaduraSelectName.textContent = name;
+        if (armaduraSelectPrice) {
+          armaduraSelectPrice.textContent = priceStr ? `${priceStr} MN` : '—';
+        }
+        setTriggerThumb(image, shape, color);
+        if (armaduraSelectWrap) armaduraSelectWrap.classList.add('armadura-custom-select--selected');
+        // Marcar la opción correspondiente del menú (si existe)
+        armaduraSelectOptions?.forEach((o) => {
+          o.setAttribute('aria-selected', o.dataset.value === id ? 'true' : 'false');
+        });
       }
 
       function clearArmaduraFromForm() {
@@ -1769,9 +2091,111 @@ const tryOnProducts: Product[] = products.filter(
         if (armaduraHint) armaduraHint.hidden = false;
         if (armaduraManualName) armaduraManualName.value = '';
         if (armaduraManualPrice) armaduraManualPrice.value = '';
+        // Reset del trigger del custom select a su estado placeholder
+        if (armaduraSelectName) armaduraSelectName.textContent = 'Elegí una armadura del catálogo';
+        if (armaduraSelectPrice) armaduraSelectPrice.textContent = 'o usá el probador arriba';
+        if (armaduraSelectThumb) armaduraSelectThumb.innerHTML = '';
+        if (armaduraSelectWrap) armaduraSelectWrap.classList.remove('armadura-custom-select--selected');
+        armaduraSelectOptions?.forEach((o) => o.setAttribute('aria-selected', 'false'));
+        closeArmaduraMenu();
       }
 
       armaduraClearBtn?.addEventListener('click', clearArmaduraFromForm);
+
+      // Sincronización armadura desde una opción del menú del catálogo (sin probador).
+      function syncArmaduraFromCatalog(opt: HTMLButtonElement) {
+        if (!armaduraCard || !armaduraIdInput) return;
+        const id = opt.dataset.value || '';
+        const name = opt.dataset.name || '';
+        const priceRaw = opt.dataset.price || '';
+        const priceNum = Number(priceRaw);
+        const priceStr = Number.isFinite(priceNum) && priceNum > 0
+          ? priceNum.toLocaleString('es-ES')
+          : '';
+        const shape = opt.dataset.shape || '';
+        const color = opt.dataset.color || '#0a1f5c';
+        const image = opt.dataset.image || '';
+
+        armaduraIdInput.value = id;
+
+        // Thumb en la card: preferimos imagen real; si no, SVG por forma.
+        let thumbHtml = '';
+        if (image) {
+          thumbHtml = `<img src="${escapeHtmlAttr(image)}" alt="" />`;
+        } else if (shape && FRAME_SHAPES_RUNTIME.includes(shape)) {
+          thumbHtml = renderShape(shape as Shape, color);
+        }
+        if (armaduraThumb) armaduraThumb.innerHTML = thumbHtml;
+
+        if (armaduraName) armaduraName.textContent = name;
+        if (armaduraPrice) armaduraPrice.textContent = priceStr ? `${priceStr} MN` : '';
+        armaduraCard.hidden = false;
+        if (armaduraHint) armaduraHint.hidden = true;
+        if (armaduraManualName) armaduraManualName.value = name;
+        if (armaduraManualPrice && priceStr) armaduraManualPrice.value = priceStr;
+
+        // Reflejar la selección en el trigger del custom select
+        if (armaduraSelectName) armaduraSelectName.textContent = name;
+        if (armaduraSelectPrice) {
+          armaduraSelectPrice.textContent = priceStr ? `${priceStr} MN` : '—';
+        }
+        setTriggerThumb(image, shape, color);
+        if (armaduraSelectWrap) armaduraSelectWrap.classList.add('armadura-custom-select--selected');
+        // Marcar la opción clickeada como seleccionada en el menú
+        armaduraSelectOptions?.forEach((o) => {
+          o.setAttribute('aria-selected', o === opt ? 'true' : 'false');
+        });
+      }
+
+      // ----- Custom select: abrir/cerrar menú + selección de opción -----
+
+      function openArmaduraMenu() {
+        if (!armaduraSelectMenu || !armaduraSelectTrigger) return;
+        armaduraSelectMenu.hidden = false;
+        armaduraSelectTrigger.setAttribute('aria-expanded', 'true');
+      }
+
+      function closeArmaduraMenu() {
+        if (!armaduraSelectMenu || !armaduraSelectTrigger) return;
+        armaduraSelectMenu.hidden = true;
+        armaduraSelectTrigger.setAttribute('aria-expanded', 'false');
+      }
+
+      function toggleArmaduraMenu() {
+        if (!armaduraSelectMenu) return;
+        if (armaduraSelectMenu.hidden) openArmaduraMenu();
+        else closeArmaduraMenu();
+      }
+
+      armaduraSelectTrigger?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleArmaduraMenu();
+      });
+
+      armaduraSelectOptions?.forEach((opt) => {
+        opt.addEventListener('click', (e) => {
+          e.stopPropagation();
+          syncArmaduraFromCatalog(opt);
+          closeArmaduraMenu();
+          // Devolver foco al trigger para accesibilidad
+          armaduraSelectTrigger?.focus();
+        });
+      });
+
+      // Click fuera del wrapper cierra el menú
+      document.addEventListener('click', (e) => {
+        if (!armaduraSelectWrap) return;
+        const target = e.target as Node;
+        if (!armaduraSelectWrap.contains(target)) closeArmaduraMenu();
+      });
+
+      // Escape cierra el menú
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && armaduraSelectMenu && !armaduraSelectMenu.hidden) {
+          closeArmaduraMenu();
+          armaduraSelectTrigger?.focus();
+        }
+      });
 
       let lastFocus: HTMLElement | null = null;
 
