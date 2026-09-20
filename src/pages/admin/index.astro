@@ -382,56 +382,6 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                 </div>
               </div>
 
-              <div class="field-row">
-                <div class="field">
-                  <label for="pShape">Forma</label>
-                  <div class="input-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <circle cx="6" cy="12" r="3.5"/>
-                      <circle cx="18" cy="12" r="3.5"/>
-                      <line x1="9.5" y1="12" x2="14.5" y2="12"/>
-                    </svg>
-                    <select id="pShape" class="input-select">
-                      <option value="">Sin forma específica</option>
-                      <optgroup label="Armaduras">
-                        <option value="round">Redonda</option>
-                        <option value="cat">Cat-eye</option>
-                        <option value="rect">Rectangular</option>
-                        <option value="square">Cuadrada</option>
-                        <option value="rimless">Sin marco</option>
-                        <option value="aviator">Aviator</option>
-                        <option value="wayfarer">Wayfarer</option>
-                      </optgroup>
-                      <optgroup label="Accesorios">
-                        <option value="case">Estuche</option>
-                        <option value="cord">Cordón</option>
-                        <option value="bottle">Botella</option>
-                        <option value="wipes">Toallitas</option>
-                        <option value="kit">Kit</option>
-                      </optgroup>
-                    </select>
-                  </div>
-                  <small class="field-hint">
-                    Necesario para que el producto aparezca en el probador virtual (filtra por forma de armadura).
-                  </small>
-                </div>
-
-                <div class="field">
-                  <label for="pColor">Color (frame)</label>
-                  <div class="input-wrap">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                      <circle cx="12" cy="12" r="9"/>
-                      <path d="M12 3v18"/>
-                      <path d="M3 12h18"/>
-                    </svg>
-                    <input type="color" id="pColor" value="#0a1f5c" />
-                  </div>
-                  <small class="field-hint">
-                    Color del frame para el SVG fallback del probador. Azul Avilea por defecto.
-                  </small>
-                </div>
-              </div>
-
               <div class="field">
                 <label>Imagen del producto</label>
                 <div class="upload-zone" id="uploadZone">
@@ -899,14 +849,6 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                 <td><span class="cat-chip cat-${p.category}">${catLabel(p.category)}</span></td>
                 <td><span class="row-price">$${fmtPrice(p.price)}<small> MN</small></span></td>
                 <td class="td-actions">
-                  <button class="btn-icon" title="Ver imagen" data-view-img="${escapeHtml(p.id)}" ${
-                    !p.image ? 'disabled style="opacity:.3;cursor:not-allowed"' : ''
-                  }>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
-                      <circle cx="12" cy="12" r="3"></circle>
-                    </svg>
-                  </button>
                   <button class="btn-icon danger" title="Eliminar" data-delete="${escapeHtml(p.id)}" type="button">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="3 6 5 6 21 6"></polyline>
@@ -920,12 +862,6 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
 
         tbody.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((btn) => {
           btn.addEventListener('click', () => deleteProduct(btn.dataset.delete!));
-        });
-        tbody.querySelectorAll<HTMLButtonElement>('[data-view-img]').forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const prod = products.find((p) => p.id === btn.dataset.viewImg);
-            if (prod?.image) window.open(prod.image, '_blank');
-          });
         });
       }
 
@@ -950,15 +886,11 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         const catInput = document.getElementById('pCategory') as HTMLSelectElement | null;
         const priceInput = document.getElementById('pPrice') as HTMLInputElement | null;
         const idInput = document.getElementById('pId') as HTMLInputElement | null;
-        const shapeInput = document.getElementById('pShape') as HTMLSelectElement | null;
-        const colorInput = document.getElementById('pColor') as HTMLInputElement | null;
         if (!nameInput || !catInput || !priceInput) return;
 
         const name = nameInput.value.trim();
         const category = catInput.value as Category | '';
         const price = parseFloat(priceInput.value);
-        const shape = (shapeInput?.value ?? '').trim();
-        const color = (colorInput?.value ?? '').trim();
 
         if (!name || !category || isNaN(price) || price < 0) {
           toast('Completa todos los campos correctamente', 'error');
@@ -997,8 +929,8 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
             category,
             price,
             image: currentImage,
-            shape: shape || null,
-            color: color || null,
+            shape: null,
+            color: null,
             ...(manualId ? { id: manualId } : {}),
           };
           const { data, error } = await supabaseBrowser
