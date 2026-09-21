@@ -556,7 +556,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
-                  Guardar publicación
+                  <span class="btn-label">Guardar publicación</span>
                 </button>
               </div>
             </form>
@@ -639,6 +639,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
       let posts: Post[] = [];
       let currentImage: string | null = null;
       let currentPostImage: string | null = null;
+      let editingPostId: string | null = null;
 
       /* ---------- Toast ---------- */
       function toast(message: string, type: 'success' | 'error' = 'success') {
@@ -727,8 +728,24 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         </svg>`;
       }
 
+      /* ---------- Form mode (create / edit) ---------- */
+      function setPostFormMode(mode: 'create' | 'edit') {
+        const head = document.querySelector<HTMLElement>('.view-nuevo-post .panel-head h3');
+        const sub = document.querySelector<HTMLElement>('.view-nuevo-post .panel-head .panel-sub');
+        const label = document.querySelector<HTMLElement>('#postForm .btn-label');
+        if (mode === 'edit') {
+          if (head) head.textContent = 'Editar publicación';
+          if (sub) sub.textContent = 'Modificá los datos del artículo y guardá los cambios.';
+          if (label) label.textContent = 'Guardar cambios';
+        } else {
+          if (head) head.textContent = 'Información de la publicación';
+          if (sub) sub.textContent = 'Completá los datos del nuevo artículo del blog.';
+          if (label) label.textContent = 'Guardar publicación';
+        }
+      }
+
       /* ---------- View switching ---------- */
-      function switchView(view: string) {
+      function switchView(view: string, customTitle?: string) {
         document.querySelectorAll('.admin-link').forEach((l) => l.classList.remove('active'));
         document
           .querySelectorAll<HTMLElement>('.admin-link')
@@ -748,7 +765,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           'nuevo-post': 'Nueva publicación',
         };
         const topTitle = document.getElementById('topTitle');
-        if (topTitle) topTitle.textContent = titles[view] || 'Dashboard';
+        if (topTitle) topTitle.textContent = customTitle || titles[view] || 'Dashboard';
 
         document.getElementById('adminShell')?.classList.remove('menu-open');
       }
@@ -1046,6 +1063,12 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                 <td>${status}</td>
                 <td><span class="row-date">${escapeHtml(formatPostDateShort(p.published_at ?? p.date ?? ''))}</span></td>
                 <td class="td-actions">
+                  <button class="btn-icon" title="Editar" data-edit-post="${escapeHtml(p.id)}" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
                   <button class="btn-icon danger" title="Eliminar" data-delete-post="${escapeHtml(p.id)}" type="button">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="3 6 5 6 21 6"></polyline>
@@ -1057,12 +1080,15 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           })
           .join('');
 
+        tbody.querySelectorAll<HTMLButtonElement>('[data-edit-post]').forEach((btn) => {
+          btn.addEventListener('click', () => enterEditPostMode(btn.dataset.editPost!));
+        });
         tbody.querySelectorAll<HTMLButtonElement>('[data-delete-post]').forEach((btn) => {
           btn.addEventListener('click', () => deletePost(btn.dataset.deletePost!));
         });
       }
 
-      async function onCreatePost(e: SubmitEvent) {
+      async function onSubmitPost(e: SubmitEvent) {
         e.preventDefault();
 
         const titleEl = document.getElementById('postTitle') as HTMLInputElement | null;
@@ -1092,6 +1118,9 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           contentEl.focus();
           return;
         }
+        // En create exigimos portada nueva. En edit permitimos conservar la
+        // actual si currentPostImage sigue siendo la original (el usuario
+        // no abrió el selector de archivo).
         if (!currentPostImage) {
           toast('Subí una imagen de portada.', 'error');
           return;
@@ -1102,15 +1131,41 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           return;
         }
 
-        try {
-          const slug = slugify(title);
-          const insertRow = {
-            slug,
+        if (editingPostId) {
+          await updatePost(editingPostId, {
             title,
             excerpt,
             content,
-            cover: currentPostImage,
             category,
+            cover: currentPostImage,
+          });
+        } else {
+          await insertPost({
+            title,
+            excerpt,
+            content,
+            category,
+            cover: currentPostImage,
+          });
+        }
+      }
+
+      async function insertPost(payload: {
+        title: string;
+        excerpt: string;
+        content: string;
+        category: PostCategory;
+        cover: string;
+      }) {
+        try {
+          const slug = slugify(payload.title);
+          const insertRow = {
+            slug,
+            title: payload.title,
+            excerpt: payload.excerpt,
+            content: payload.content,
+            cover: payload.cover,
+            category: payload.category,
             is_published: true,
           };
           const { data, error } = await supabaseBrowser
@@ -1127,6 +1182,42 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           switchView('blog');
         } catch (e) {
           toast('Error al crear: ' + (e instanceof Error ? e.message : ''), 'error');
+        }
+      }
+
+      async function updatePost(
+        postId: string,
+        payload: {
+          title: string;
+          excerpt: string;
+          content: string;
+          category: PostCategory;
+          cover: string;
+        }
+      ) {
+        try {
+          const { data, error } = await supabaseBrowser
+            .from('posts')
+            .update({
+              title: payload.title,
+              excerpt: payload.excerpt,
+              content: payload.content,
+              cover: payload.cover,
+              category: payload.category,
+            })
+            .eq('id', postId)
+            .select()
+            .single();
+          if (error) throw error;
+          const updated = rowToPost(data);
+          const idx = posts.findIndex((p) => p.id === postId);
+          if (idx >= 0) posts[idx] = updated;
+          renderAll();
+          resetPostForm();
+          toast('Publicación actualizada correctamente');
+          switchView('blog');
+        } catch (e) {
+          toast('Error al actualizar: ' + (e instanceof Error ? e.message : ''), 'error');
         }
       }
 
@@ -1148,6 +1239,48 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         }
       }
 
+      function enterEditPostMode(postId: string) {
+        const post = posts.find((p) => p.id === postId);
+        if (!post) {
+          toast('No se encontró la publicación', 'error');
+          return;
+        }
+
+        const titleEl = document.getElementById('postTitle') as HTMLInputElement | null;
+        const excerptEl = document.getElementById('postExcerpt') as HTMLTextAreaElement | null;
+        const contentEl = document.getElementById('postContent') as HTMLTextAreaElement | null;
+        const catEl = document.getElementById('postCategory') as HTMLSelectElement | null;
+        const zone = document.getElementById('postUploadZone');
+        const preview = document.getElementById('postUploadPreview') as HTMLImageElement | null;
+        const content = document.getElementById('postUploadContent');
+        const input = document.getElementById('postCoverInput') as HTMLInputElement | null;
+
+        if (!titleEl || !excerptEl || !contentEl || !catEl || !zone || !preview || !content || !input) {
+          return;
+        }
+
+        editingPostId = post.id;
+
+        titleEl.value = post.title;
+        excerptEl.value = post.excerpt;
+        contentEl.value = post.content;
+        catEl.value = post.category;
+
+        // Cargamos la imagen actual (data URL guardada en la fila) en la zona
+        // de upload. Si el usuario sube otra, currentPostImage pasa a la nueva;
+        // si no toca nada, conservamos la original.
+        currentPostImage = post.cover;
+        preview.src = post.cover;
+        preview.hidden = false;
+        content.hidden = true;
+        zone.classList.add('has-image');
+        zone.classList.remove('drag');
+        input.value = '';
+
+        setPostFormMode('edit');
+        switchView('nuevo-post', 'Editar publicación');
+      }
+
       function resetPostForm() {
         const form = document.getElementById('postForm') as HTMLFormElement | null;
         form?.reset();
@@ -1163,6 +1296,8 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         }
         if (content) content.hidden = false;
         if (input) input.value = '';
+        editingPostId = null;
+        setPostFormMode('create');
       }
 
       function setupPostUpload() {
@@ -1626,7 +1761,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         document.getElementById('filterPostCategory')?.addEventListener('change', renderPostsTable);
 
         const postForm = document.getElementById('postForm');
-        postForm?.addEventListener('submit', onCreatePost as unknown as EventListener);
+        postForm?.addEventListener('submit', onSubmitPost as unknown as EventListener);
         document.getElementById('postCancelBtn')?.addEventListener('click', () => {
           resetPostForm();
           switchView('blog');

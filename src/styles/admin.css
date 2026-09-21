@@ -842,6 +842,7 @@
 }
 .th-actions { text-align: right; }
 .td-actions { text-align: right; white-space: nowrap; }
+.td-actions .btn-icon + .btn-icon { margin-left: 6px; }
 
 .row-product {
   display: flex;
