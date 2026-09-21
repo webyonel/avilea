@@ -167,20 +167,3 @@ const payload = {
   }
   .post-card:hover .post-card__cta { color: var(--accent-2); }
 </style>
-
-<script>
-  // Click en cualquier card dispara el evento `post:open` con el payload
-  // del post. PostModal escucha ese evento y se popula.
-  document.querySelectorAll<HTMLButtonElement>('[data-post-card]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const raw = btn.dataset.post;
-      if (!raw) return;
-      try {
-        const payload = JSON.parse(raw);
-        document.dispatchEvent(new CustomEvent('post:open', { detail: payload }));
-      } catch (err) {
-        console.error('[PostCard] no se pudo parsear data-post:', err);
-      }
-    });
-  });
-</script>

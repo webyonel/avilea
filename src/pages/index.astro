@@ -1,31 +1,16 @@
 ---
 // src/pages/index.astro
-// Página pública principal. Solo index por ahora.
-// Fase 2: los productos vienen de Supabase (server-side).
-// Si la query falla, se renderiza un mensaje de error visible
-// (NO fallback a DEFAULT_PRODUCTS, según decisión del proyecto).
+// Página pública principal.
+// Fase 2 → runtime: el catálogo de productos se hidrata en el browser
+// desde Supabase (ver Catalog.astro → fetchProductsBrowser). El sitio
+// público ya no hace fetch en build-time, así que los cambios del admin
+// se ven sin redeploy.
 
 import Layout from '../layouts/Layout.astro';
 import Hero from '../components/public/Hero.astro';
 import Catalog from '../components/public/Catalog.astro';
 import CustomOrderForm from '../components/public/CustomOrderForm.astro';
 import Contact from '../components/public/Contact.astro';
-import { fetchProducts } from '../lib/supabase-products';
-import { DEFAULT_PRODUCTS } from '../lib/catalog';
-import type { Product } from '../lib/catalog';
-
-let products: Product[] = DEFAULT_PRODUCTS;
-let loadError: string | null = null;
-
-try {
-  products = await fetchProducts();
-} catch (e) {
-  loadError = e instanceof Error ? e.message : 'Error desconocido al cargar el catálogo.';
-  console.error('[home] fetchProducts failed:', loadError);
-  // Dejamos `products` con los defaults solo para que el tipado no rompa;
-  // el bloque de error de abajo se renderiza en lugar del catálogo.
-  products = [];
-}
 ---
 
 <Layout
@@ -33,76 +18,7 @@ try {
   description="Avilea es una óptica cubana con 3 locales: Ciego de Ávila, Ciro Redondo y Morón. Armaduras graduadas a medida, cristales hechos en laboratorio propio, accesorios y atención personalizada. Probá cómo te quedan con nuestro probador virtual."
 >
   <Hero />
-
-  {loadError ? (
-    <section class="section section-alt" id="productos">
-      <div class="container">
-        <div class="catalog-error" role="alert">
-          <div class="catalog-error__icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"></circle>
-              <line x1="12" y1="8" x2="12" y2="12"></line>
-              <line x1="12" y1="16" x2="12.01" y2="16"></line>
-            </svg>
-          </div>
-          <h2 class="catalog-error__title">No pudimos cargar el catálogo</h2>
-          <p class="catalog-error__msg">
-            Estamos teniendo problemas para conectarnos con el servidor. Por favor intentá de nuevo en unos minutos.
-          </p>
-          <p class="catalog-error__detail">
-            Detalle técnico: {loadError}
-          </p>
-        </div>
-      </div>
-    </section>
-  ) : (
-    <Catalog products={products} />
-    <CustomOrderForm products={products} />
-  )}
-
+  <Catalog />
+  <CustomOrderForm />
   <Contact />
 </Layout>
-
-<style>
-  .catalog-error {
-    max-width: 560px;
-    margin: 40px auto;
-    padding: 32px 28px;
-    background: var(--white);
-    border: 1px solid var(--line);
-    border-radius: var(--radius-lg);
-    text-align: center;
-  }
-  .catalog-error__icon {
-    width: 56px;
-    height: 56px;
-    margin: 0 auto 16px;
-    border-radius: 50%;
-    background: #fef2f2;
-    color: #b91c1c;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .catalog-error__icon svg { width: 28px; height: 28px; }
-  .catalog-error__title {
-    margin: 0 0 8px;
-    font-family: 'Playfair Display', serif;
-    font-size: 1.4rem;
-    font-weight: 600;
-    color: var(--ink);
-  }
-  .catalog-error__msg {
-    margin: 0 0 12px;
-    font-size: 15px;
-    line-height: 1.55;
-    color: var(--ink-soft);
-  }
-  .catalog-error__detail {
-    margin: 0;
-    font-size: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    color: var(--ink-mute);
-    word-break: break-word;
-  }
-</style>

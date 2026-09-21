@@ -201,26 +201,44 @@ const jsonLd = {
       // como cualquier elemento con [data-reveal] — usado por componentes
       // nuevos (cards del blog, items de galería, etc.) sin tener que tocar
       // este selector central.
-      const els = document.querySelectorAll(
-        '.info-row, .map-card, .section-head, .product-card, [data-reveal]',
-      );
-      els.forEach((el) => el.classList.add('reveal'));
+      //
+      // Fase 2 → runtime: las cards del catálogo y del blog se inyectan
+      // dinámicamente desde Supabase (Catalog.astro, sobre-nosotros.astro,
+      // CustomOrderForm.astro). Capturarlas una sola vez al cargar ya no
+      // alcanza — escuchamos el custom event `avilea:reveal-refresh` que
+      // disparan esos scripts al terminar de inyectar, y re-observamos.
+      // Usamos `:not(.in)` para no volver a observar elementos ya animados.
+      let io: IntersectionObserver | null = null;
       if ('IntersectionObserver' in window) {
-        const io = new IntersectionObserver(
+        io = new IntersectionObserver(
           (entries) => {
-            entries.forEach((entry) => {
+            for (const entry of entries) {
               if (entry.isIntersecting) {
                 entry.target.classList.add('in');
-                io.unobserve(entry.target);
+                io!.unobserve(entry.target);
               }
-            });
+            }
           },
-          { threshold: 0.12 }
+          { threshold: 0.12 },
         );
-        els.forEach((el) => io.observe(el));
-      } else {
-        els.forEach((el) => el.classList.add('in'));
       }
+
+      const REVEAL_SELECTOR =
+        '.info-row:not(.in), .map-card:not(.in), .section-head:not(.in), ' +
+        '.product-card:not(.in), .post-card:not(.in), [data-reveal]:not(.in)';
+
+      function observeRevealTargets() {
+        const targets = document.querySelectorAll<HTMLElement>(REVEAL_SELECTOR);
+        targets.forEach((el) => el.classList.add('reveal'));
+        if (io) {
+          targets.forEach((el) => io!.observe(el));
+        } else {
+          targets.forEach((el) => el.classList.add('in'));
+        }
+      }
+
+      observeRevealTargets();
+      window.addEventListener('avilea:reveal-refresh', observeRevealTargets);
     </script>
   </body>
 </html>

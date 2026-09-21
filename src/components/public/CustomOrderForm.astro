@@ -2,6 +2,10 @@
 // src/components/public/CustomOrderForm.astro
 // Formulario de espejuelos a medida. Fase 1: solo abre WhatsApp,
 // no persiste. El número de destino es WA_PHONE_ORDERS (no WA_PHONE).
+//
+// Fase 2 → runtime: el catálogo se hidrata en el browser con sharedFetchProducts
+// (ver <script> al final de este archivo). El frontmatter ya no deriva las
+// listas de productos — las inyectan los scripts al cargar la página.
 import { WA_PHONE_ORDERS } from '../../lib/whatsapp';
 import {
   EMPTY_ORDER,
@@ -11,32 +15,15 @@ import {
   PROGRESIVO_INDICES,
   orderToMessage,
 } from '../../lib/orders';
-import { DEFAULT_PRODUCTS, type Product, type Shape } from '../../lib/catalog';
-import { renderShape } from '../../lib/svgShapes';
-import { formatPrice } from '../../lib/format';
+import type { Product } from '../../lib/catalog';
 
 interface Props {
+  /** Deprecated: el catálogo se hidrata en runtime vía sharedFetchProducts.
+   *  Se conserva la prop para no romper consumidores externos (ej. tests)
+   *  pero se ignora. */
   products?: Product[];
 }
-const { products = DEFAULT_PRODUCTS } = Astro.props;
-
-// Solo armaduras reales (con shape de armadura, no de accesorio).
-// Shapes de armadura: round, cat, rect, square, rimless, aviator, wayfarer.
-const FRAME_SHAPES: readonly Shape[] = [
-  'round', 'cat', 'rect', 'square', 'rimless', 'aviator', 'wayfarer',
-];
-const tryOnProducts: Product[] = products.filter(
-  (p): p is Product & { shape: Shape } =>
-    typeof p.shape === 'string' && (FRAME_SHAPES as readonly string[]).includes(p.shape),
-);
-
-// Productos del catálogo que se pueden elegir desde el formulario sin usar
-// el probador virtual. Excluye `pregraduados` (lentes de lectura listos, no
-// armaduras a medida): el cliente que pide espejuelos a medida ya tiene
-// graduación, no le aplica un lente pregraduado.
-const catalogFrames: Product[] = products.filter(
-  (p) => p.category !== 'pregraduados',
-);
+const {} = Astro.props;
 ---
 
 <section class="section section-alt" id="pedido">
@@ -131,46 +118,10 @@ const catalogFrames: Product[] = products.filter(
             role="listbox"
             data-armadura-select-menu
             aria-label="Armaduras del catálogo"
+            data-armadura-options
             hidden
           >
-            {catalogFrames.map((p) => {
-              const hasFrameThumb = p.image
-                || (p.shape && (FRAME_SHAPES as readonly string[]).includes(p.shape));
-              return (
-                <li>
-                  <button
-                    type="button"
-                    role="option"
-                    class="armadura-custom-select__option"
-                    data-armadura-option
-                    data-value={p.id}
-                    data-name={p.name}
-                    data-price={String(p.price)}
-                    data-shape={p.shape ?? ''}
-                    data-color={p.color ?? '#0a1f5c'}
-                    data-image={p.image ?? ''}
-                    aria-selected="false"
-                  >
-                    <span class="armadura-custom-select__thumb" aria-hidden="true">
-                      {p.image ? (
-                        <img src={p.image} alt="" loading="lazy" />
-                      ) : hasFrameThumb ? (
-                        <Fragment set:html={renderShape(p.shape as Shape, p.color ?? '#0a1f5c')} />
-                      ) : null}
-                    </span>
-                    <span class="armadura-custom-select__info">
-                      <span class="armadura-custom-select__name">{p.name}</span>
-                      <span class="armadura-custom-select__price">{formatPrice(p.price)} MN</span>
-                    </span>
-                    <span class="armadura-custom-select__check" aria-hidden="true">
-                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
+            {/* El script del final inyecta las opciones runtime con sharedFetchProducts. */}
           </ul>
         </div>
 
@@ -435,31 +386,8 @@ const catalogFrames: Product[] = products.filter(
                   <polyline points="15 18 9 12 15 6"/>
                 </svg>
               </button>
-              <ul class="tryon-rail__list" role="radiogroup" aria-label="Elegí una armadura">
-                {tryOnProducts.map((p) => (
-                  <li>
-                    <button
-                      type="button"
-                      class="tryon-frame"
-                      data-frame-id={p.id}
-                      data-frame-name={p.name}
-                      data-frame-price={p.price}
-                      data-frame-image={p.image ?? ''}
-                      data-shape={p.shape}
-                      data-color={p.color ?? '#0a1f5c'}
-                      aria-checked="false"
-                      role="radio"
-                    >
-                      <span class="tryon-frame__thumb">
-                        {p.image
-                          ? <img src={p.image} alt="" loading="lazy" />
-                          : <Fragment set:html={renderShape(p.shape, p.color ?? '#0a1f5c')} />
-                        }
-                      </span>
-                      <span class="tryon-frame__name">{p.name}</span>
-                    </button>
-                  </li>
-                ))}
+              <ul class="tryon-rail__list" role="radiogroup" aria-label="Elegí una armadura" data-tryon-rail>
+                {/* El script del final inyecta las armaduras runtime con sharedFetchProducts. */}
               </ul>
               <button type="button" class="tryon-rail__nav tryon-rail__nav--next" aria-label="Siguiente" data-tryon-rail-next>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="22" height="22">
@@ -1969,6 +1897,13 @@ const catalogFrames: Product[] = products.filter(
   } from '../../lib/tryon-face-detection';
   import { renderShape } from '../../lib/svgShapes';
   import type { Shape } from '../../lib/catalog';
+  import { sharedFetchProducts } from '../../lib/products-runtime-cache';
+  import {
+    renderTryonFrame,
+    renderArmaduraOption,
+    filterTryOnFrames,
+    filterCatalogFrames,
+  } from '../../lib/render-cards';
 
   // Preload del modelo apenas carga la página: el usuario va a tener el
   // modelo cacheado para cuando abra el modal y suba la foto (no siente la
@@ -1999,12 +1934,16 @@ const catalogFrames: Product[] = products.filter(
       const photo = modal.querySelector<HTMLImageElement>('.tryon-photo');
       const overlay = modal.querySelector<HTMLElement>('[data-frame-overlay]');
       const titleEl = modal.querySelector<HTMLElement>('#tryonTitle');
-      const frames = modal.querySelectorAll<HTMLButtonElement>('.tryon-frame');
       const railList = modal.querySelector<HTMLElement>('.tryon-rail__list');
       const railPrev = modal.querySelector<HTMLButtonElement>('[data-tryon-rail-prev]');
       const railNext = modal.querySelector<HTMLButtonElement>('[data-tryon-rail-next]');
       const orderForm = document.getElementById('orderForm');
       const canvas = modal.querySelector<HTMLElement>('.tryon-canvas');
+
+      // Las armaduras del rail y las opciones del menú se inyectan runtime
+      // vía sharedFetchProducts. Helpers que consultan el DOM en el momento
+      // (no capturan NodeList al inicio) para ver siempre los items actuales.
+      const getFrames = () => modal.querySelectorAll<HTMLButtonElement>('.tryon-frame');
 
       // Sincronización armadura ↔ formulario (selección del probador).
       const armaduraCard = orderForm?.querySelector<HTMLElement>('[data-armadura-card]');
@@ -2024,7 +1963,9 @@ const catalogFrames: Product[] = products.filter(
       const armaduraSelectName = orderForm?.querySelector<HTMLElement>('[data-armadura-select-name]');
       const armaduraSelectPrice = orderForm?.querySelector<HTMLElement>('[data-armadura-select-price]');
       const armaduraSelectMenu = orderForm?.querySelector<HTMLElement>('[data-armadura-select-menu]');
-      const armaduraSelectOptions = orderForm?.querySelectorAll<HTMLButtonElement>('[data-armadura-option]');
+      const getOptions = () =>
+        armaduraSelectMenu?.querySelectorAll<HTMLButtonElement>('[data-armadura-option]') ??
+        ([] as unknown as NodeListOf<HTMLButtonElement>);
 
       // Shapes válidas para renderizar SVG de armadura en el thumb de la card.
       // Si el producto elegido del catálogo no es una armadura (ej. accesorio),
@@ -2032,6 +1973,48 @@ const catalogFrames: Product[] = products.filter(
       const FRAME_SHAPES_RUNTIME: readonly string[] = [
         'round', 'cat', 'rect', 'square', 'rimless', 'aviator', 'wayfarer',
       ];
+
+      // ============ Hidratación del catálogo (runtime) ============
+      // Trae productos de Supabase una sola vez (compartido vía cache) y los
+      // inyecta en el rail del probador + el menú del custom-select del
+      // formulario. Los handlers de click ya están delegados sobre los
+      // contenedores (railList, armaduraSelectMenu), así que aplican a los
+      // elementos nuevos sin re-bindear.
+      sharedFetchProducts()
+        .then((all) => {
+          const tryOnProducts = filterTryOnFrames(all);
+          const catalogFrames = filterCatalogFrames(all);
+
+          if (railList) {
+            railList.innerHTML = tryOnProducts.length
+              ? tryOnProducts.map(renderTryonFrame).join('')
+              : `<li class="runtime-empty" role="status"><p>Todavía no hay armaduras cargadas para probar.</p></li>`;
+            checkRailOverflow();
+          }
+
+          if (armaduraSelectMenu) {
+            armaduraSelectMenu.innerHTML = catalogFrames.length
+              ? catalogFrames.map(renderArmaduraOption).join('')
+              : `<li class="runtime-empty" role="status"><p>No hay armaduras en el catálogo.</p></li>`;
+          }
+
+          // Si el modal ya estaba abierto y esperando, ahora sí hay frames.
+          if (!stagePreview?.hidden && overlay && getFrames().length) {
+            selectFrame(getFrames()[0].dataset.frameId || '');
+          }
+
+          window.dispatchEvent(new CustomEvent('avilea:reveal-refresh'));
+        })
+        .catch((e) => {
+          const msg = e instanceof Error ? e.message : 'Error desconocido al cargar el catálogo.';
+          console.error('[order-form] sharedFetchProducts failed:', msg);
+          if (railList) {
+            railList.innerHTML = `<li class="runtime-error-inline" role="alert"><p>No pudimos cargar las armaduras.</p></li>`;
+          }
+          if (armaduraSelectMenu) {
+            armaduraSelectMenu.innerHTML = `<li class="runtime-error-inline" role="alert"><p>No pudimos cargar el catálogo.</p></li>`;
+          }
+        });
 
       /** Pinta el thumb del trigger con imagen real o SVG por forma. */
       function setTriggerThumb(image: string, shape: string, color: string) {
@@ -2080,7 +2063,7 @@ const catalogFrames: Product[] = products.filter(
         setTriggerThumb(image, shape, color);
         if (armaduraSelectWrap) armaduraSelectWrap.classList.add('armadura-custom-select--selected');
         // Marcar la opción correspondiente del menú (si existe)
-        armaduraSelectOptions?.forEach((o) => {
+        getOptions().forEach((o) => {
           o.setAttribute('aria-selected', o.dataset.value === id ? 'true' : 'false');
         });
       }
@@ -2096,7 +2079,7 @@ const catalogFrames: Product[] = products.filter(
         if (armaduraSelectPrice) armaduraSelectPrice.textContent = 'o usá el probador arriba';
         if (armaduraSelectThumb) armaduraSelectThumb.innerHTML = '';
         if (armaduraSelectWrap) armaduraSelectWrap.classList.remove('armadura-custom-select--selected');
-        armaduraSelectOptions?.forEach((o) => o.setAttribute('aria-selected', 'false'));
+        getOptions().forEach((o) => o.setAttribute('aria-selected', 'false'));
         closeArmaduraMenu();
       }
 
@@ -2142,7 +2125,7 @@ const catalogFrames: Product[] = products.filter(
         setTriggerThumb(image, shape, color);
         if (armaduraSelectWrap) armaduraSelectWrap.classList.add('armadura-custom-select--selected');
         // Marcar la opción clickeada como seleccionada en el menú
-        armaduraSelectOptions?.forEach((o) => {
+        getOptions().forEach((o) => {
           o.setAttribute('aria-selected', o === opt ? 'true' : 'false');
         });
       }
@@ -2172,14 +2155,16 @@ const catalogFrames: Product[] = products.filter(
         toggleArmaduraMenu();
       });
 
-      armaduraSelectOptions?.forEach((opt) => {
-        opt.addEventListener('click', (e) => {
-          e.stopPropagation();
-          syncArmaduraFromCatalog(opt);
-          closeArmaduraMenu();
-          // Devolver foco al trigger para accesibilidad
-          armaduraSelectTrigger?.focus();
-        });
+      // Click delegado sobre el menú: funciona para opciones inyectadas
+      // en runtime por el script que carga el catálogo.
+      armaduraSelectMenu?.addEventListener('click', (e) => {
+        const opt = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-armadura-option]');
+        if (!opt) return;
+        e.stopPropagation();
+        syncArmaduraFromCatalog(opt);
+        closeArmaduraMenu();
+        // Devolver foco al trigger para accesibilidad
+        armaduraSelectTrigger?.focus();
       });
 
       // Click fuera del wrapper cierra el menú
@@ -2206,8 +2191,8 @@ const catalogFrames: Product[] = products.filter(
         document.body.style.overflow = 'hidden';
         modal.querySelector<HTMLButtonElement>('.tryon-close')?.focus();
         // Armadura por defecto al abrir en preview (si ya hay foto previa no, queda como está).
-        if (!stagePreview?.hidden && frames.length && overlay) {
-          selectFrame(frames[0].dataset.frameId || '');
+        if (!stagePreview?.hidden && getFrames().length && overlay) {
+          selectFrame(getFrames()[0].dataset.frameId || '');
         }
         // Empezamos a bajar MediaPipe en background para que esté listo
         // cuando el usuario suba la primera foto.
@@ -2319,8 +2304,8 @@ const catalogFrames: Product[] = products.filter(
 
         stageEmpty.hidden = true;
         stagePreview.hidden = false;
-        if (frames.length) {
-          selectFrame(frames[0].dataset.frameId || '');
+        if (getFrames().length) {
+          selectFrame(getFrames()[0].dataset.frameId || '');
         }
         // Llevar scroll al inicio del preview.
         modal.querySelector('.tryon-body')?.scrollTo({ top: 0 });
@@ -2332,7 +2317,7 @@ const catalogFrames: Product[] = products.filter(
           `.tryon-frame[data-frame-id="${CSS.escape(id)}"]`,
         );
         if (!btn) return;
-        frames.forEach((f) => {
+        getFrames().forEach((f) => {
           const active = f.dataset.frameId === id;
           f.classList.toggle('tryon-frame--active', active);
           f.setAttribute('aria-checked', active ? 'true' : 'false');
@@ -2390,9 +2375,13 @@ const catalogFrames: Product[] = products.filter(
 
       replaceBtn?.addEventListener('click', () => fileInput?.click());
 
-      frames.forEach((f) =>
-        f.addEventListener('click', () => selectFrame(f.dataset.frameId || '')),
-      );
+      // Click delegado sobre el rail: funciona para armaduras inyectadas
+      // en runtime por el script que carga el catálogo.
+      railList?.addEventListener('click', (e) => {
+        const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.tryon-frame');
+        if (!btn) return;
+        selectFrame(btn.dataset.frameId || '');
+      });
 
       railPrev?.addEventListener('click', () =>
         railList?.scrollBy({ left: -220, behavior: 'smooth' }),

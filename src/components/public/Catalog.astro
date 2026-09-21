@@ -1,16 +1,14 @@
 ---
 // src/components/public/Catalog.astro
-import type { Product, Category } from '../../lib/catalog';
+// Sección #productos. El catálogo se hidrata en runtime vía fetchProductsBrowser():
+// el frontmatter solo aporta los chips de filtro (que son metadata, no data)
+// y un placeholder de carga. Los productos reales vienen de Supabase cuando
+// el script del final de este componente corre en el browser.
+
+import type { Category } from '../../lib/catalog';
 import { CATEGORIES, CATEGORY_LABEL } from '../../lib/catalog';
-import ProductCard from './ProductCard.astro';
 
-interface Props {
-  products: Product[];
-}
-
-const { products } = Astro.props;
-
-// Chips de filtro: "Todos" + cada categoría
+// Chips de filtro: "Todos" + cada categoría. Server-rendered, no cambian.
 const filters: Array<{ value: 'all' | Category; label: string }> = [
   { value: 'all', label: 'Todos' },
   ...CATEGORIES.map((c) => ({ value: c, label: CATEGORY_LABEL[c] })),
@@ -37,17 +35,54 @@ const filters: Array<{ value: 'all' | Category; label: string }> = [
       ))}
     </div>
 
-    <div class="catalog" id="catalog">
-      {products.map((p) => <ProductCard product={p} />)}
+    <div class="catalog" id="catalog" data-reveal-root>
+      {/* El script de abajo reemplaza este placeholder con las cards reales. */}
+      <div class="runtime-loading" role="status" aria-live="polite">
+        <div class="runtime-loading__spinner" aria-hidden="true"></div>
+        <p class="runtime-loading__text">Cargando catálogo…</p>
+      </div>
     </div>
   </div>
 </section>
 
 <script>
-  // Filtros client-side: muestra/oculta cards según data-cat.
+  import { fetchProductsBrowser } from '../../lib/runtime-products';
+  import { renderProductCard, renderLoading, renderError } from '../../lib/render-cards';
+
+  const root = document.getElementById('catalog');
+  if (root) {
+    (async () => {
+      try {
+        const products = await fetchProductsBrowser();
+        if (products.length === 0) {
+          root.innerHTML = `
+            <div class="catalog-empty" role="status">
+              <p>Todavía no hay productos cargados en el catálogo. Vuelve a chequear pronto.</p>
+            </div>
+          `;
+          return;
+        }
+        root.innerHTML = products.map(renderProductCard).join('');
+        // Si el IntersectionObserver del Layout ya estaba observando este
+        // root, los hijos nuevos quedan cubiertos automáticamente (el root
+        // se considera "intersecting" si tiene cards en viewport). Forzamos
+        // un re-check explícito pidiendo al observer que recalcule.
+        window.dispatchEvent(new CustomEvent('avilea:reveal-refresh'));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'Error desconocido al cargar el catálogo.';
+        console.error('[catalog] fetch failed:', msg);
+        root.innerHTML = renderError(msg);
+      }
+    })();
+  }
+
+  // Filtros client-side: toggle de visibilidad según data-cat.
+  // Se bindea acá (en vez de en Layout) porque las cards son inyectadas
+  // por este mismo script. Cada vez que se re-renderiza, los botones siguen
+  // funcionando porque matchean por data-filter, no por card individual.
   document.querySelectorAll<HTMLButtonElement>('.filter').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll<HTMLButtonElement>('.filter').forEach((b) => b.classList.remove('active'));
       btn.classList.add('active');
       const filter = btn.dataset.filter ?? 'all';
       document.querySelectorAll<HTMLElement>('#catalog .product-card').forEach((card) => {
