@@ -295,7 +295,11 @@ export function computeOverlayPosition(
   };
 }
 
-/** Aplica la posición al overlay (inline styles ganan sobre el CSS estático). */
+/** Aplica la posición al overlay (inline styles ganan sobre el CSS estático).
+ *  La rotación se setea como CSS var (`--overlay-rotate`) para que el gesture
+ *  controller pueda componer translate/scale del usuario sobre la misma
+ *  transform. left/top/width siguen siendo inline porque el controller no
+ *  las necesita tocar. */
 export function applyOverlayPosition(
   overlay: HTMLElement,
   position: OverlayPosition
@@ -303,15 +307,18 @@ export function applyOverlayPosition(
   overlay.style.left = `${position.leftPct}%`;
   overlay.style.top = `${position.topPct}%`;
   overlay.style.width = `${position.widthPct}%`;
-  overlay.style.transform = `translate(-50%, -50%) rotate(${position.rotationDeg}deg)`;
+  overlay.style.setProperty('--overlay-rotate', `${position.rotationDeg}deg`);
   overlay.dataset.dynamicPosition = 'true';
 }
 
-/** Limpia los inline styles — el overlay vuelve a su posición CSS estática (32%). */
+/** Limpia los inline styles y la CSS var de rotación — el overlay vuelve
+ *  a su posición CSS estática (32%, sin rotate). Los offsets/escala del
+ *  usuario (--overlay-tx/ty/scale) NO se tocan: si el usuario ya ajustó
+ *  la armadura, esos ajustes se preservan al re-disparar MediaPipe. */
 export function resetOverlayPosition(overlay: HTMLElement): void {
   overlay.style.left = '';
   overlay.style.top = '';
   overlay.style.width = '';
-  overlay.style.transform = '';
+  overlay.style.removeProperty('--overlay-rotate');
   delete overlay.dataset.dynamicPosition;
 }

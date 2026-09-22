@@ -376,6 +376,13 @@ const {} = Astro.props;
               </svg>
               Cambiar foto
             </button>
+            <button type="button" class="btn btn-ghost tryon-reset" data-tryon-reset aria-label="Centrar armadura">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
+              </svg>
+              Centrar armadura
+            </button>
           </div>
 
           <div class="tryon-rail-wrap">
@@ -1082,12 +1089,24 @@ const {} = Astro.props;
     position: absolute;
     top: 32%;
     left: 50%;
-    transform: translate(-50%, -50%);
     width: 56%;
-    pointer-events: none;
+    /* Composición: centrar + rotate MediaPipe + translate/scale del usuario.
+       El orden importa: translate después de rotate hace que el drag
+       opere en el frame rotado (sigue a la cabeza), y scale después de
+       translate mantiene la distancia de drag constante visualmente. */
+    transform: translate(-50%, -50%) rotate(var(--overlay-rotate, 0deg))
+               translate(var(--overlay-tx, 0px), var(--overlay-ty, 0px))
+               scale(var(--overlay-scale, 1));
+    transform-origin: 50% 50%;
+    pointer-events: auto;       /* el overlay captura drag/pinch */
+    cursor: grab;
+    touch-action: none;          /* evita scroll/zoom nativo del browser */
+    user-select: none;
+    -webkit-user-select: none;
     opacity: 0.92;
     filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.25));
   }
+  .tryon-frame-overlay:active { cursor: grabbing; }
   .tryon-frame-overlay :global(svg) { width: 100%; height: auto; display: block; }
   .tryon-frame-overlay :global(img) { width: 100%; height: auto; display: block; }
   .tryon-hint {
@@ -1118,6 +1137,25 @@ const {} = Astro.props;
     color: var(--ink) !important;
     border: 1px solid var(--line) !important;
     box-shadow: var(--shadow-sm);
+  }
+
+  /* Reset overlay (devuelve tx/ty/scale a default tras gestos). Aparece
+     arriba a la derecha, debajo de "Cambiar foto". */
+  .tryon-reset {
+    position: absolute;
+    top: 56px;
+    right: 12px;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: var(--ink) !important;
+    border: 1px solid var(--line) !important;
+    box-shadow: var(--shadow-sm);
+    z-index: 3;
+  }
+  .tryon-reset:hover {
+    color: var(--primary) !important;
+    border-color: var(--primary) !important;
   }
 
   /* Indicador "Procesando imagen" mientras MediaPipe corre.
@@ -1660,6 +1698,7 @@ const {} = Astro.props;
     filterTryOnFrames,
     filterCatalogFrames,
   } from '../../lib/render-cards';
+  import { createOverlayGestureController } from '../../lib/tryon-gestures';
 
   // Preload del modelo: lo arrancamos DESPUÉS de que el catálogo termine de
   // cargar, para no competir con la consulta a Supabase por el ancho de
@@ -1691,6 +1730,7 @@ const {} = Astro.props;
       const fileInput = modal.querySelector<HTMLInputElement>('[data-tryon-file]');
       const cameraBtn = modal.querySelector<HTMLButtonElement>('[data-tryon-camera]');
       const replaceBtn = modal.querySelector<HTMLButtonElement>('[data-tryon-replace]');
+      const resetBtn = modal.querySelector<HTMLButtonElement>('[data-tryon-reset]');
       const jumpBtn = modal.querySelector<HTMLButtonElement>('[data-tryon-jump]');
       const stageEmpty = modal.querySelector<HTMLElement>('[data-stage="empty"]');
       const stagePreview = modal.querySelector<HTMLElement>('[data-stage="preview"]');
@@ -1702,6 +1742,26 @@ const {} = Astro.props;
       const railNext = modal.querySelector<HTMLButtonElement>('[data-tryon-rail-next]');
       const orderForm = document.getElementById('orderForm');
       const canvas = modal.querySelector<HTMLElement>('.tryon-canvas');
+
+      // ============ Gesture controller del overlay ============
+      // Permite arrastrar (1 dedo/mouse) y escalar (pinch 2 dedos / wheel)
+      // la armadura sobre la foto. El estado (tx/ty/scale) es compartido
+      // entre armaduras: si ajustás una, las demás heredan ese offset.
+      // Se compone sobre el resultado de MediaPipe vía CSS vars
+      // (--overlay-tx/ty/scale). Ver src/lib/tryon-gestures.ts.
+      const overlayGesture = (overlay && canvas)
+        ? createOverlayGestureController({
+            overlayEl: overlay,
+            canvasEl: canvas,
+            onChange: (adj) => {
+              overlay!.style.setProperty('--overlay-tx', `${adj.tx}px`);
+              overlay!.style.setProperty('--overlay-ty', `${adj.ty}px`);
+              overlay!.style.setProperty('--overlay-scale', String(adj.scale));
+            },
+          })
+        : null;
+      overlayGesture?.start();
+      resetBtn?.addEventListener('click', () => overlayGesture?.reset());
 
       // Las armaduras del rail y las opciones del menú se inyectan runtime
       // vía sharedFetchProducts. Helpers que consultan el DOM en el momento
