@@ -412,6 +412,56 @@ const {} = Astro.props;
           <button type="button" class="tryon-footer__link" data-tryon-jump>completá el pedido</button>.
         </p>
       </footer>
+
+      <!-- Aviso de gestos: aparece una vez por sesión apenas se sube la foto.
+           Le explica al usuario cómo ajustar la armadura sobre su cara. -->
+      <div class="tryon-gesture-notice" data-tryon-gesture-notice hidden role="alertdialog" aria-modal="true" aria-labelledby="tryonGestureTitle" aria-describedby="tryonGestureDesc">
+        <div class="tryon-gesture-notice__backdrop" data-tryon-gesture-dismiss aria-hidden="true"></div>
+        <div class="tryon-gesture-notice__card" role="document">
+          <div class="tryon-gesture-notice__icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M9 11V6a2 2 0 1 1 4 0v5"/>
+              <path d="M13 11V4a2 2 0 1 1 4 0v9"/>
+              <path d="M17 11V6a2 2 0 1 1 4 0v9a7 7 0 0 1-14 0v-3a2 2 0 1 1 4 0"/>
+            </svg>
+          </div>
+          <h4 class="tryon-gesture-notice__title" id="tryonGestureTitle">¡Ya está sobre tu cara!</h4>
+          <p class="tryon-gesture-notice__lead" id="tryonGestureDesc">Ajustala con estos gestos:</p>
+          <ul class="tryon-gesture-notice__list">
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7"/>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                <line x1="11" y1="8" x2="11" y2="14"/>
+                <line x1="8" y1="11" x2="14" y2="11"/>
+              </svg>
+              <span><strong>Achicar o agrandar</strong> con dos dedos (o scroll del mouse).</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              <span><strong>Rotar</strong> con dos dedos (o Shift + arrastrar).</span>
+            </li>
+            <li>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M5 9l-3 3 3 3"/>
+                <path d="M19 9l3 3-3 3"/>
+                <path d="M9 5l3-3 3 3"/>
+                <path d="M9 19l3 3 3-3"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <line x1="12" y1="2" x2="12" y2="22"/>
+              </svg>
+              <span><strong>Mover</strong> arrastrando con un dedo.</span>
+            </li>
+          </ul>
+          <button type="button" class="btn btn-primary tryon-gesture-notice__btn" data-tryon-gesture-dismiss>
+            Entendido
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -1311,6 +1361,102 @@ const {} = Astro.props;
   }
   .tryon-footer__link:hover { color: var(--accent-2); }
 
+  /* Aviso de gestos (overlay dentro del probador) */
+  .tryon-gesture-notice {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: tryon-gesture-fade 0.22s var(--ease);
+  }
+  .tryon-gesture-notice[hidden] { display: none; }
+  @keyframes tryon-gesture-fade {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  .tryon-gesture-notice__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 31, 92, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    cursor: pointer;
+  }
+  .tryon-gesture-notice__card {
+    position: relative;
+    background: var(--white);
+    border-radius: var(--radius-lg, 18px);
+    box-shadow: 0 18px 48px rgba(10, 31, 92, 0.28);
+    padding: 26px 24px 22px;
+    max-width: 360px;
+    width: 100%;
+    text-align: center;
+    animation: tryon-gesture-pop 0.28s var(--ease);
+  }
+  @keyframes tryon-gesture-pop {
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .tryon-gesture-notice__icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--primary-soft);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 12px;
+  }
+  .tryon-gesture-notice__icon svg {
+    width: 30px;
+    height: 30px;
+  }
+  .tryon-gesture-notice__title {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .tryon-gesture-notice__lead {
+    margin: 0 0 18px;
+    font-size: 14px;
+    color: var(--ink-mute, #64748b);
+    line-height: 1.4;
+  }
+  .tryon-gesture-notice__list {
+    list-style: none;
+    margin: 0 0 22px;
+    padding: 0;
+    text-align: left;
+  }
+  .tryon-gesture-notice__list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+    font-size: 14px;
+    line-height: 1.4;
+    color: var(--ink);
+  }
+  .tryon-gesture-notice__list li:first-child { border-top: none; padding-top: 6px; }
+  .tryon-gesture-notice__list li svg {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin-top: 2px;
+    color: var(--primary);
+  }
+  .tryon-gesture-notice__list li strong { font-weight: 700; color: var(--ink); }
+  .tryon-gesture-notice__btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   @media (min-width: 720px) {
     .form-row { grid-template-columns: repeat(2, 1fr); }
     .eyes-grid { grid-template-columns: repeat(2, 1fr); }
@@ -2125,6 +2271,7 @@ const {} = Astro.props;
         photo.onload = () => {
           URL.revokeObjectURL(url);
           processPhoto();
+          showGestureNotice();
         };
         photo.src = url;
 
@@ -2135,6 +2282,37 @@ const {} = Astro.props;
         }
         // Llevar scroll al inicio del preview.
         modal.querySelector('.tryon-body')?.scrollTo({ top: 0 });
+      }
+
+      /**
+       * Muestra el aviso de gestos la primera vez que el usuario sube una foto
+       * (una vez por sesión, vía sessionStorage). Si ya lo descartó antes, no
+       * vuelve a aparecer ni siquiera con "Cambiar foto".
+       */
+      function showGestureNotice() {
+        const notice = modal.querySelector<HTMLElement>('[data-tryon-gesture-notice]');
+        if (!notice) return;
+        try {
+          if (sessionStorage.getItem('tryon-gesture-notice-dismissed') === '1') return;
+        } catch {
+          /* sessionStorage puede tirar si el modo privado lo bloquea; caemos
+             a mostrar siempre el aviso en ese caso */
+        }
+        notice.hidden = false;
+        // Foco al botón "Entendido" para que Enter/Espacio lo cierre.
+        const btn = notice.querySelector<HTMLButtonElement>('.tryon-gesture-notice__btn');
+        btn?.focus();
+      }
+
+      function dismissGestureNotice() {
+        const notice = modal.querySelector<HTMLElement>('[data-tryon-gesture-notice]');
+        if (!notice || notice.hidden) return;
+        notice.hidden = true;
+        try {
+          sessionStorage.setItem('tryon-gesture-notice-dismissed', '1');
+        } catch {
+          /* ignorar: si no se puede persistir, no pasa nada */
+        }
       }
 
       function selectFrame(id: string) {
@@ -2200,6 +2378,21 @@ const {} = Astro.props;
       });
 
       replaceBtn?.addEventListener('click', () => fileInput?.click());
+
+      // Aviso de gestos: backdrop y botón "Entendido" cierran el modal.
+      modal.querySelectorAll<HTMLElement>('[data-tryon-gesture-dismiss]').forEach((el) => {
+        el.addEventListener('click', dismissGestureNotice);
+      });
+      // Esc cierra el aviso si está abierto.
+      modal.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const notice = modal.querySelector<HTMLElement>('[data-tryon-gesture-notice]');
+          if (notice && !notice.hidden) {
+            e.preventDefault();
+            dismissGestureNotice();
+          }
+        }
+      });
 
       // Click delegado sobre el rail: funciona para armaduras inyectadas
       // en runtime por el script que carga el catálogo.

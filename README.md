@@ -15,8 +15,8 @@ Migración desde el sitio vanilla original (`../HTMLAvilea/`) a **Astro 7** con 
 ### Admin (`/admin`)
 - Login con Supabase Auth (email + password).
 - Dashboard con KPIs (productos, categorías, publicaciones) y tasa USD → MN editable.
-- CRUD de productos (crear, listar, eliminar) con upload de imagen con compresión client-side.
-- CRUD de publicaciones (crear, listar, eliminar) con upload de cover, slug auto-generado desde el título, editor markdown con modal de ayuda.
+- CRUD de productos (crear, listar, **editar**, eliminar) con upload de imagen con compresión client-side. La edición reusa la vista del formulario "Nuevo producto" (modo `edit`: título del panel cambia a "Editar producto" y el ID queda deshabilitado para no romper referencias).
+- CRUD de publicaciones (crear, listar, **editar**, eliminar) con upload de cover, slug auto-generado desde el título, editor markdown con modal de ayuda. Mismo patrón de edición dedicado que productos.
 
 ## Stack
 

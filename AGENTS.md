@@ -100,9 +100,15 @@ avilea/
 │   │   ├── format.ts          # formatPrice
 │   │   ├── orders.ts          # CustomOrder, MATERIALS, TREATMENTS, FOCAL_DISTANCES, orderToMessage
 │   │   ├── posts.ts           # Post, PostCategory, DEFAULT_POSTS, formatPostDate (blog)
-│   │   ├── supabase-products.ts  # fetchProducts() (build-time)
-│   │   ├── supabase-posts.ts     # fetchPosts() (build-time)
+│   │   ├── render-cards.ts    # funciones puras que devuelven HTML (renderProductCard, renderPostCard, renderArmaduraOption, renderTryonFrame, filterTryOnFrames, filterCatalogFrames)
+│   │   ├── runtime-products.ts # fetchProducts() runtime para el front (con fallback a DEFAULT_PRODUCTS)
+│   │   ├── products-runtime-cache.ts # caché singleton de fetchProducts()
+│   │   ├── runtime-posts.ts   # fetchPosts() runtime para el front (con fallback a DEFAULT_POSTS)
+│   │   ├── supabase-products.ts  # fetchProducts() build-time
+│   │   ├── supabase-posts.ts     # fetchPosts() build-time
 │   │   ├── svgShapes.ts       # generadores SVG por forma
+│   │   ├── tryon-face-detection.ts # MediaPipe Face Landmarker + computeOverlayPosition / applyOverlayPosition
+│   │   ├── tryon-gestures.ts  # createOverlayGestureController (drag/pinch/twist/wheel/Shift+drag, reset)
 │   │   └── whatsapp.ts        # WA_PHONE, WA_PHONE_ORDERS, waLink, productWaLink, orderWaLink, defaultWaLink
 │   ├── pages/
 │   │   ├── index.astro            # / — home
@@ -289,9 +295,8 @@ Cada tarjeta de local construye su propio `waLink(loc.phone, ...)`. La línea de
 ### 8.4. Funcionalidad
 
 - **Dashboard**: KPIs (productos totales, categorías, publicaciones), productos recientes, tasa USD → MN editable (lee/escribe en tabla `settings`).
-- **Productos** (`/admin#productos`): listar, crear, eliminar. Imagen se sube desde el admin (data URL comprimida en canvas). Categorías que requieren ID manual (`armaduras`, `femenino`, `masculino`, `ninos`, `unisex`, `accesorios`) lo piden explícitamente; el resto auto-genera desde el nombre.
-- **Blog** (`/admin#blog`): listar, crear, eliminar publicaciones. Slug se auto-genera desde el título (`slugify()`). Editor markdown con modal de ayuda (`MarkdownHelpModal`).
-- **Sin edición inline** de productos/posts: solo crear + listar + eliminar. Edición se puede agregar después si hace falta.
+- **Productos** (`/admin#productos`): listar, crear, **editar**, eliminar. La edición se hace en la misma vista del formulario "Nuevo producto", solo cambia el modo: el panel-head muestra "Editar producto", el botón submit dice "Guardar cambios", y el ID queda deshabilitado (es PK: cambiarla rompería referencias en el catálogo público y en "Mi armadura" del formulario). Si no se sube una imagen nueva en edit, se conserva la original (la pre-rellena en la zona de upload). Imagen se sube desde el admin (data URL comprimida en canvas). Categorías que requieren ID manual (`armaduras`, `femenino`, `masculino`, `ninos`, `unisex`, `accesorios`) lo piden explícitamente; el resto auto-genera desde el nombre.
+- **Blog** (`/admin#blog`): listar, crear, **editar**, eliminar publicaciones. Mismo patrón que productos: vista dedicada (el modo `edit` reusa el form "Nueva publicación"). Slug se auto-genera desde el título (`slugify()`). Editor markdown con modal de ayuda (`MarkdownHelpModal`).
 - **Tasa USD** (`/admin#dashboard`): input numérico que upsert en `settings` (`key = 'usd_rate'`, `value = número`). El sitio público aún no la usa (no se muestran precios en USD); es solo para uso futuro.
 
 ### 8.5. Bugs y detalles visuales que ya están resueltos
@@ -411,6 +416,21 @@ Si el modelo ya estaba cacheado, el progreso pasa 0→100 muy rápido y el usuar
 
 **Props**: `CustomOrderForm` recibe `products?: Product[]` con default `DEFAULT_PRODUCTS`. La home pasa `products={DEFAULT_PRODUCTS}` desde `index.astro`.
 
+**Filter de armaduras ampliado (filtro tolerante a admin-upload sin `shape`)**: el filtro usado por el rail del probador (`filterTryOnFrames` en `src/lib/render-cards.ts`) acepta dos casos:
+  1. `shape ∈ {round, cat, rect, square, rimless, aviator, wayfarer}` (criterio original).
+  2. **O** el producto pertenece a una categoría de armaduras (`armaduras`, `femenino`, `masculino`, `unisex`, `ninos`) aunque tenga `shape = null`. Esto cubre las armaduras que el admin sube hoy, ya que el form de "Nuevo producto" no pide `shape` (y el insert lo hardcodea a `null`); sin este fallback, el rail aparecía vacío para todos los productos nuevos. Si en algún momento se agrega el campo `shape` al form, se puede volver a la versión estricta (criterio 1).
+
+**Gestos sobre el overlay (arrastrable, pinch-zoom, rotación)**: `src/lib/tryon-gestures.ts` implementa `createOverlayGestureController({ overlayEl, canvasEl, onChange })`, agnóstico a MediaPipe. Devuelve un controller con `start / stop / reset / getAdjustment / isDefault`. Gestos soportados:
+  - 1 dedo o mouse drag → mueve el overlay (offsetTx/Ty).
+  - 2 dedos pinch → escala (clamp `[0.5, 3]`).
+  - 2 dedos twist o Shift+drag → rota en grados. El Shift+drag rota alrededor del centro actual del overlay.
+  - Wheel del mouse sin modificador → escala.
+  - `reset()` vuelve a `{ tx:0, ty:0, scale:1, rotation:0 }`.
+
+  El overlay compone la transformación así (CSS vars): `translate(-50%,-50%) rotate(var(--overlay-rotate, 0deg)) translate(var(--overlay-tx, 0px), var(--overlay-ty, 0px)) rotate(var(--overlay-rotate-user, 0deg)) scale(var(--overlay-scale, 1))`. `tryon-face-detection.ts` setea `--overlay-rotate` con el head-roll de MediaPipe (`applyOverlayPosition`); el gesture controller setea `--overlay-tx/ty/scale/rotate-user`. Las 4 vars del usuario se preservan al cambiar de armadura (`reset()` solo si el usuario lo pide; el botón "Centrar armadura" lo dispara).
+
+**Aviso de gestos (modal one-shot)**: al subir la foto por primera vez en una sesión, aparece un modal de aviso (`.tryon-gesture-notice` dentro del panel del probador) con los 3 gestos posibles: **achicar/agarrar** con dos dedos o scroll, **rotar** con dos dedos o Shift+arrastrar, **mover** con un dedo. Cierra con click en el backdrop, botón "Entendido" o tecla `Escape`. El descarte se persiste en `sessionStorage` (clave `tryon-gesture-notice-dismissed`) — una vez descartado, no vuelve a aparecer ni con "Cambiar foto" ni al reabrir el modal en la misma sesión. Lo dispara `showGestureNotice()` en el `photo.onload` de `showPhotoPreview()` en `CustomOrderForm.astro`. Si `sessionStorage` está bloqueado (modo privado con cookies off), el `try/catch` cae en mostrar el aviso siempre (mejor repetir que esconder).
+
 ---
 
 ## 10. Supabase (Fase 2 — implementado)
@@ -454,9 +474,9 @@ Archivos en `supabase/migrations/` (idempotentes, correr en orden en Supabase �
 ### 10.5. Pendientes futuros
 
 - **Persistencia de pedidos**: hoy el formulario abre WhatsApp sin guardar. Tabla `custom_orders` queda como trabajo futuro cuando el cliente lo pida.
-- **Edición inline** de productos y posts (hoy solo crear/eliminar).
 - **Storage de imágenes**: hoy se guardan como data URLs en la columna `image`/`cover`. Si las imágenes crecen mucho (>1 MB), conviene migrar a Supabase Storage con URL pública.
 - **Sanitización de markdown**: el contenido se renderiza con `marked` y se inyecta con `innerHTML`. Hoy el seed viene solo del SQL (sin input del admin), así que el riesgo XSS es bajo. Cuando se habilite admin con input de usuario, envolver la salida con `DOMPurify` antes del `innerHTML`.
+- **Campos `shape` y `color` en el form de producto**: hoy el form de "Nuevo producto" no pide `shape` (ni `color`), y el insert los hardcodea a `null`. Eso deja las armaduras subidas por el admin sin forma — el probador las muestra igual porque el filtro es tolerante (§9.6), pero el thumb en el catálogo cae al color chip de la categoría en lugar del SVG por forma. Si en algún momento se quiere el thumb por shape real, agregar dos select al form (`shape` y `color`) y migrar el `filterTryOnFrames` a la versión estricta.
 
 ---
 
@@ -564,6 +584,30 @@ El sitio público hace fetch a Supabase en el frontmatter. Eso significa que **e
 - **Páginas admin** (`/admin`, `/admin/login`): agregaron `<meta name="robots" content="noindex, nofollow">` para que Google no las indexe.
 - **Per-page**: `index.astro` pasa título/description específicos; `sobre-nosotros.astro` pasa `ogType="article"`. El resto hereda los defaults del Layout.
 - **Posicionamiento local**: el JSON-LD `Optician` + 3 `LocalBusiness` department + geo meta + dirección completa del Ciego (con "Cine-Teatro Iriondo") están pensados para búsquedas locales en Cuba ("óptica Ciego de Ávila", etc.).
+
+### 12.13. Estilos de componentes renderizados via `innerHTML`
+
+Astro agrega atributos `data-astro-cid-*` a los elementos que están dentro de la plantilla del componente, para que el CSS `<style scoped>` del `.astro` los alcance por especificidad. **Pero** cuando el frontend inyecta HTML con `innerHTML` (después de un fetch a Supabase o tras un render en runtime), esos elementos **no llevan el cid** y las reglas scoped **no les aplican**.
+
+Por eso los siguientes selectores viven en `src/styles/styles.css` (CSS global, sección marcada en el archivo), **NO** en `<style scoped>` de los `.astro`:
+
+- `.post-card*` y `.post-card__*` (cards del blog, inyectadas por `renderPostCard()` en `src/lib/render-cards.ts`).
+- `.armadura-custom-select*` (menú flotante de selección de armadura del formulario, inyectado por `renderArmaduraOption()`).
+- `.tryon-frame*` (rail de armaduras del probador, inyectado por `renderTryonFrame()`).
+
+`PostCard.astro` ya no tiene su `<style>` propio (la sección quedó vacía con un comentario apuntando al global).
+
+**Regla**: si un bloque se va a hidratar en runtime vía `innerHTML` o un render desde un módulo TS (`renderXxx(...)` que devuelve un string HTML), los estilos van en `src/styles/styles.css`. Si la lógica vive en `src/lib/render-cards.ts`, también podés inyectar un `<style>` desde la misma función — pero el archivo global es el lugar canónico para mantener todo encontrable.
+
+### 12.14. Gesture controller del probador (`src/lib/tryon-gestures.ts`)
+
+`createOverlayGestureController({ overlayEl, canvasEl, onChange, scaleRange? })` devuelve un controller con `start / stop / reset / getAdjustment / isDefault`. La composición de la transformación con MediaPipe funciona así:
+
+- **MediaPipe define el ancla**: el script de detección (`applyOverlayPosition` en `tryon-face-detection.ts`) setea `left/top/width` de la `.tryon-frame-overlay` y la CSS var `--overlay-rotate` con el head-roll (en grados).
+- **El controller superpone el ajuste del usuario**: en cada cambio, llama `onChange({ tx, ty, scale, rotation })`, y el handler los vuelca a las CSS vars `--overlay-tx`, `--overlay-ty`, `--overlay-scale`, `--overlay-rotate-user`.
+- **Composición de la transform** (en `styles.css` del overlay): `translate(-50%,-50%) rotate(var(--overlay-rotate)) translate(var(--overlay-tx),var(--overlay-ty)) rotate(var(--overlay-rotate-user)) scale(var(--overlay-scale))`. El orden importa — ver el comentario en `CustomOrderForm.astro` (sección del overlay).
+
+Al cambiar de armadura, los ajustes manuales (`tx/ty/scale/rotate-user`) **se preservan** en el estado del controller; el reset solo ocurre si el usuario pulsa el botón "Centrar armadura" (que llama `controller.reset()`). Esto es coherente: si moviste la armadura porque no encajaba bien, ese ajuste vale para todas las demás.
 
 
 
