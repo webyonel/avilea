@@ -24,3 +24,4 @@ pnpm-debug.log*
 .idea/
 scripts/build_og_image.py
 supabase/migrations/004_add_blog_sample_posts.sql
+supabase/migrations/005_create_products_storage.sql

@@ -18,6 +18,7 @@
 
 import type { Product, Shape } from './catalog';
 import { CATEGORY_LABEL } from './catalog';
+import type { Category } from './catalog';
 import type { Post } from './posts';
 import { POST_CATEGORY_LABEL, formatPostDate } from './posts';
 import { formatPrice } from './format';
@@ -59,6 +60,13 @@ const ARROW_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const FRAME_SHAPES: readonly Shape[] = [
   'round', 'cat', 'rect', 'square', 'rimless', 'aviator', 'wayfarer',
 ];
+
+/** Categorías cuyos productos son armaduras (frames). Sirve de fallback en
+ *  `filterTryOnFrames` para no dejar afuera armaduras subidas por el admin
+ *  que todavía no tienen `shape` (el form de admin hoy no pide shape). */
+const FRAME_CATEGORIES: ReadonlySet<Category> = new Set<Category>([
+  'armaduras', 'femenino', 'masculino', 'unisex', 'ninos',
+]);
 
 function hasFrameThumb(p: Product): boolean {
   return !!p.image || (!!p.shape && (FRAME_SHAPES as readonly string[]).includes(p.shape));
@@ -233,12 +241,21 @@ export function renderTryonFrame(p: Product): string {
 
 // ============== Helpers de filtrado ==============
 
-/** Devuelve solo los productos con shape de armadura (para el probador). */
+/** Devuelve los productos que se pueden probar en el probador virtual.
+ *  Criterio:
+ *  1. Tiene `shape` que es una forma de armadura → incluir.
+ *  2. Si no, pertenece a una categoría de armaduras → incluir igual.
+ *     El render cae a la imagen del producto si existe; si no, no muestra
+ *     thumb en el rail.
+ *  Antes exigía solo criterio 1, lo que dejaba afuera todas las armaduras
+ *  subidas por el admin sin `shape` (el form no pide shape todavía). */
 export function filterTryOnFrames(products: Product[]): Product[] {
-  return products.filter(
-    (p): p is Product & { shape: Shape } =>
-      typeof p.shape === 'string' && (FRAME_SHAPES as readonly string[]).includes(p.shape),
-  );
+  return products.filter((p) => {
+    if (typeof p.shape === 'string' && (FRAME_SHAPES as readonly string[]).includes(p.shape)) {
+      return true;
+    }
+    return FRAME_CATEGORIES.has(p.category);
+  });
 }
 
 /**

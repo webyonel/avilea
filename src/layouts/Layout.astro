@@ -40,6 +40,11 @@ const {
 const base = `${(import.meta.env.BASE_URL ?? '/').replace(/\/$/, '')}/`;
 const siteOrigin = Astro.site?.origin ?? '';
 
+// URL de Supabase para preconnect + preload en <head>. Si no está definida
+// (build local sin .env), no emitimos nada y caemos al fetch del módulo JS.
+const supabaseUrl = (import.meta.env.PUBLIC_SUPABASE_URL ?? '').replace(/\/$/, '');
+const supabaseAnonKey = (import.meta.env.PUBLIC_SUPABASE_ANON_KEY ?? '');
+
 // URL canónica: por defecto la URL actual de la página (Astro.url ya es absoluta
 // porque respeta `site` + `base`). Si la pasan por prop, gana.
 const canonicalUrl = canonical ?? Astro.url.href;
@@ -104,6 +109,57 @@ const jsonLd = {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    {/* ============ PRECONNECT A SUPABASE ============
+        Abre TCP/TLS al dominio de Supabase apenas se empieza a parsear el HTML.
+        Con `crossorigin` cubre el handshake del preflight CORS que dispara el
+        header `apikey`. Sin esto, el primer fetch a /rest/v1/products paga DNS
+        + TCP + TLS + preflight antes de empezar a transferir el body. */}
+    {supabaseUrl && (
+      <>
+        <link rel="preconnect" href={supabaseUrl} crossorigin />
+        <link rel="dns-prefetch" href={supabaseUrl} />
+      </>
+    )}
+
+    {/* ============ PRELOAD DEL CATÁLOGO ============
+        Dispara un fetch RAW a /rest/v1/products apenas el parser llega al
+        <head>. La promesa queda en window.__avileaProductsPreload y la
+        reutiliza fetchProductsBrowser() cuando el módulo de Catalog se carga.
+        Resultado: la consulta viaja en paralelo al parseo del HTML, no en
+        serie después.
+
+        Si el fetch falla (red, CORS, etc.) limpiamos el preload y el módulo
+        cae al cliente supabase-js. El spinner sigue mostrándose hasta que
+        alguna de las dos rutas responda. */}
+    {supabaseUrl && supabaseAnonKey && (
+      <script is:inline define:vars={{ supabaseUrl, supabaseKey: supabaseAnonKey }}>
+        (function () {
+          try {
+            if (window.__avileaProductsPreload) return;
+            var endpoint =
+              supabaseUrl +
+              '/rest/v1/products?select=*&order=created_at.asc';
+            window.__avileaProductsPreload = fetch(endpoint, {
+              headers: {
+                apikey: supabaseKey,
+                Authorization: 'Bearer ' + supabaseKey,
+              },
+            })
+              .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+              })
+              .catch(function (err) {
+                window.__avileaProductsPreload = null;
+                throw err;
+              });
+          } catch (e) {
+            window.__avileaProductsPreload = null;
+          }
+        })();
+      </script>
+    )}
 
     {/* ============ TÍTULO Y DESCRIPCIÓN ============ */}
     <title>{title}</title>

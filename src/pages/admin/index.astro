@@ -1341,20 +1341,30 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           }
           const originalKB = Math.round(file.size / 1024);
           const reader = new FileReader();
-          reader.onload = (ev) => {
+          reader.onload = async (ev) => {
             const src = ev.target?.result as string;
             processImageSrc(
               src,
               originalKB,
               500,
-              (dataUrl, finalKB) => {
-                currentPostImage = dataUrl;
-                preview!.src = dataUrl;
-                preview!.hidden = false;
-                content!.hidden = true;
-                zone!.classList.add('has-image');
-                if (finalKB < originalKB) {
-                  toast(`Imagen procesada: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`);
+              async (blob, finalKB) => {
+                try {
+                  toast('Subiendo imagen…');
+                  const url = await uploadImageBlob(blob);
+                  currentPostImage = url;
+                  preview!.src = url;
+                  preview!.hidden = false;
+                  content!.hidden = true;
+                  zone!.classList.add('has-image');
+                  if (finalKB < originalKB) {
+                    toast(`Imagen subida: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`);
+                  } else {
+                    toast('Imagen subida');
+                  }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : 'Error desconocido';
+                  toast(`No se pudo subir la imagen: ${msg}`, 'error');
+                  console.error(err);
                 }
               },
               () => toast('No se pudo procesar la imagen', 'error')
@@ -1424,22 +1434,30 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           }
           const originalKB = Math.round(file.size / 1024);
           const reader = new FileReader();
-          reader.onload = (ev) => {
+          reader.onload = async (ev) => {
             const src = ev.target?.result as string;
             processImageSrc(
               src,
               originalKB,
               500,
-              (dataUrl, finalKB) => {
-                currentImage = dataUrl;
-                preview!.src = dataUrl;
-                preview!.hidden = false;
-                content!.hidden = true;
-                zone!.classList.add('has-image');
-                if (finalKB < originalKB) {
-                  toast(
-                    `Imagen procesada: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`
-                  );
+              async (blob, finalKB) => {
+                try {
+                  toast('Subiendo imagen…');
+                  const url = await uploadImageBlob(blob);
+                  currentImage = url;
+                  preview!.src = url;
+                  preview!.hidden = false;
+                  content!.hidden = true;
+                  zone!.classList.add('has-image');
+                  if (finalKB < originalKB) {
+                    toast(`Imagen subida: ${fmtSize(originalKB)} → ${fmtSize(finalKB)}`);
+                  } else {
+                    toast('Imagen subida');
+                  }
+                } catch (err) {
+                  const msg = err instanceof Error ? err.message : 'Error desconocido';
+                  toast(`No se pudo subir la imagen: ${msg}`, 'error');
+                  console.error(err);
                 }
               },
               () => toast('No se pudo procesar la imagen', 'error')
@@ -1478,7 +1496,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         src: string,
         _originalKB: number,
         targetKB: number,
-        cb: (dataUrl: string, finalKB: number) => void,
+        cb: (blob: Blob, finalKB: number) => void,
         onError: () => void
       ) {
         const probe = new Image();
@@ -1496,10 +1514,31 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         probe.src = src;
       }
 
+      /** Sube un Blob de imagen al bucket `products` de Supabase Storage y
+       *  devuelve la URL pública resultante.
+       *
+       * Path: `catalog/<uuid>.<ext>`. Aislado del ID del producto porque el
+       * usuario puede subir la imagen antes de tener un ID definido, y porque
+       * el UUID ya garantiza unicidad sin colisiones.
+       *
+       * Si la subida falla (red, RLS, bucket lleno), tira el error para que
+       * el caller muestre el toast. La promesa se resuelve con la URL; nunca
+       * devuelve null. */
+      async function uploadImageBlob(blob: Blob): Promise<string> {
+        const ext = blob.type === 'image/png' ? 'png' : 'jpg';
+        const path = `catalog/${crypto.randomUUID()}.${ext}`;
+        const { error } = await supabaseBrowser.storage
+          .from('products')
+          .upload(path, blob, { contentType: blob.type, upsert: false });
+        if (error) throw new Error(`[storage] upload: ${error.message}`);
+        const { data } = supabaseBrowser.storage.from('products').getPublicUrl(path);
+        return data.publicUrl;
+      }
+
       /** Redimensiona y emite PNG preservando el canal alfa. Sin compresión con pérdida. */
       function compressAsPng(
         src: string,
-        cb: (dataUrl: string, finalKB: number) => void,
+        cb: (blob: Blob, finalKB: number) => void,
         onError: () => void
       ) {
         const img = new Image();
@@ -1524,10 +1563,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                 onError();
                 return;
               }
-              const finalKB = Math.round(blob.size / 1024);
-              const r = new FileReader();
-              r.onload = () => cb(r.result as string, finalKB);
-              r.readAsDataURL(blob);
+              cb(blob, Math.round(blob.size / 1024));
             },
             'image/png'
           );
@@ -1547,7 +1583,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
       function compressToTarget(
         src: string,
         targetKB: number,
-        cb: (dataUrl: string, finalKB: number) => void,
+        cb: (blob: Blob, finalKB: number) => void,
         onError: () => void
       ) {
         const img = new Image();
@@ -1581,17 +1617,12 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                   return;
                 }
                 const finalKB = Math.round(blob.size / 1024);
-                const r = new FileReader();
-                r.onload = () => {
-                  const dataUrl = r.result as string;
-                  if (finalKB <= targetKB || i === passes.length - 1) {
-                    cb(dataUrl, finalKB);
-                  } else {
-                    i++;
-                    next();
-                  }
-                };
-                r.readAsDataURL(blob);
+                if (finalKB <= targetKB || i === passes.length - 1) {
+                  cb(blob, finalKB);
+                } else {
+                  i++;
+                  next();
+                }
               },
               'image/jpeg',
               quality
