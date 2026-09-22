@@ -408,7 +408,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <polyline points="20 6 9 17 4 12"></polyline>
                   </svg>
-                  Guardar producto
+                  <span class="btn-label">Guardar producto</span>
                 </button>
               </div>
             </form>
@@ -639,6 +639,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
       let posts: Post[] = [];
       let currentImage: string | null = null;
       let currentPostImage: string | null = null;
+      let editingProductId: string | null = null;
       let editingPostId: string | null = null;
 
       /* ---------- Toast ---------- */
@@ -729,6 +730,21 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
       }
 
       /* ---------- Form mode (create / edit) ---------- */
+      function setProductFormMode(mode: 'create' | 'edit') {
+        const head = document.querySelector<HTMLElement>('.view-nuevo .panel-head h3');
+        const sub = document.querySelector<HTMLElement>('.view-nuevo .panel-head .panel-sub');
+        const label = document.querySelector<HTMLElement>('#productForm .btn-label');
+        if (mode === 'edit') {
+          if (head) head.textContent = 'Editar producto';
+          if (sub) sub.textContent = 'Modificá los datos del producto y guardá los cambios.';
+          if (label) label.textContent = 'Guardar cambios';
+        } else {
+          if (head) head.textContent = 'Información del producto';
+          if (sub) sub.textContent = 'Completa los datos de la nueva armadura.';
+          if (label) label.textContent = 'Guardar producto';
+        }
+      }
+
       function setPostFormMode(mode: 'create' | 'edit') {
         const head = document.querySelector<HTMLElement>('.view-nuevo-post .panel-head h3');
         const sub = document.querySelector<HTMLElement>('.view-nuevo-post .panel-head .panel-sub');
@@ -866,6 +882,12 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
                 <td><span class="cat-chip cat-${p.category}">${catLabel(p.category)}</span></td>
                 <td><span class="row-price">$${fmtPrice(p.price)}<small> MN</small></span></td>
                 <td class="td-actions">
+                  <button class="btn-icon" title="Editar" data-edit-product="${escapeHtml(p.id)}" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
                   <button class="btn-icon danger" title="Eliminar" data-delete="${escapeHtml(p.id)}" type="button">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                       <polyline points="3 6 5 6 21 6"></polyline>
@@ -877,6 +899,9 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           )
           .join('');
 
+        tbody.querySelectorAll<HTMLButtonElement>('[data-edit-product]').forEach((btn) => {
+          btn.addEventListener('click', () => enterEditProductMode(btn.dataset.editProduct!));
+        });
         tbody.querySelectorAll<HTMLButtonElement>('[data-delete]').forEach((btn) => {
           btn.addEventListener('click', () => deleteProduct(btn.dataset.delete!));
         });
@@ -897,7 +922,7 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         }
       }
 
-      async function onCreateProduct(e: SubmitEvent) {
+      async function onSubmitProduct(e: SubmitEvent) {
         e.preventDefault();
         const nameInput = document.getElementById('pName') as HTMLInputElement | null;
         const catInput = document.getElementById('pCategory') as HTMLSelectElement | null;
@@ -918,11 +943,10 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
           return;
         }
 
-        // ID: obligatorio + formato slug si la categoría lo requiere.
-        // Para categorías auto, lo mandamos igual si tiene valor (el server
-        // lo acepta solo si matchea el patrón).
+        // En edit el ID está bloqueado (no se puede cambiar la PK). En create,
+        // si la categoría lo requiere, validamos el ID manual.
         let manualId: string | undefined;
-        if (categoryNeedsManualId(category)) {
+        if (!editingProductId && categoryNeedsManualId(category)) {
           const raw = (idInput?.value ?? '').trim().toLowerCase();
           if (!raw) {
             toast('Esta categoría requiere un ID. Ingresá un identificador (ej. aria-001).', 'error');
@@ -935,20 +959,45 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
             return;
           }
           manualId = raw;
-        } else if (idInput?.value.trim()) {
+        } else if (!editingProductId && idInput?.value.trim()) {
           const raw = idInput.value.trim().toLowerCase();
           if (/^[a-z0-9-]{3,40}$/.test(raw)) manualId = raw;
         }
 
-        try {
-          const insertRow = {
+        if (editingProductId) {
+          await updateProduct(editingProductId, {
             name,
             category,
             price,
             image: currentImage,
+          });
+        } else {
+          await insertProduct({
+            name,
+            category,
+            price,
+            image: currentImage,
+            manualId,
+          });
+        }
+      }
+
+      async function insertProduct(payload: {
+        name: string;
+        category: Category;
+        price: number;
+        image: string | null;
+        manualId?: string;
+      }) {
+        try {
+          const insertRow = {
+            name: payload.name,
+            category: payload.category,
+            price: payload.price,
+            image: payload.image,
             shape: null,
             color: null,
-            ...(manualId ? { id: manualId } : {}),
+            ...(payload.manualId ? { id: payload.manualId } : {}),
           };
           const { data, error } = await supabaseBrowser
             .from('products')
@@ -967,6 +1016,40 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         }
       }
 
+      async function updateProduct(
+        productId: string,
+        payload: {
+          name: string;
+          category: Category;
+          price: number;
+          image: string | null;
+        }
+      ) {
+        try {
+          const { data, error } = await supabaseBrowser
+            .from('products')
+            .update({
+              name: payload.name,
+              category: payload.category,
+              price: payload.price,
+              image: payload.image,
+            })
+            .eq('id', productId)
+            .select()
+            .single();
+          if (error) throw error;
+          const updated = rowToProduct(data);
+          const idx = products.findIndex((p) => p.id === productId);
+          if (idx >= 0) products[idx] = updated;
+          renderAll();
+          resetForm();
+          toast('Producto actualizado correctamente');
+          switchView('productos');
+        } catch (e) {
+          toast('Error al actualizar: ' + (e instanceof Error ? e.message : ''), 'error');
+        }
+      }
+
       async function deleteProduct(id: string) {
         if (!confirm('¿Eliminar este producto?')) return;
         try {
@@ -981,6 +1064,64 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         } catch (e) {
           toast('Error al eliminar: ' + (e instanceof Error ? e.message : ''), 'error');
         }
+      }
+
+      function enterEditProductMode(productId: string) {
+        const product = products.find((p) => p.id === productId);
+        if (!product) {
+          toast('No se encontró el producto', 'error');
+          return;
+        }
+
+        const nameEl = document.getElementById('pName') as HTMLInputElement | null;
+        const catEl = document.getElementById('pCategory') as HTMLSelectElement | null;
+        const priceEl = document.getElementById('pPrice') as HTMLInputElement | null;
+        const idEl = document.getElementById('pId') as HTMLInputElement | null;
+        const zone = document.getElementById('uploadZone');
+        const preview = document.getElementById('uploadPreview') as HTMLImageElement | null;
+        const content = document.getElementById('uploadContent');
+        const input = document.getElementById('pImage') as HTMLInputElement | null;
+
+        if (!nameEl || !catEl || !priceEl || !zone || !preview || !content || !input) {
+          return;
+        }
+
+        editingProductId = product.id;
+
+        nameEl.value = product.name;
+        catEl.value = product.category;
+        priceEl.value = String(product.price);
+
+        // En edit bloqueamos el ID: es la PK y cambiarla rompería referencias
+        // en el catálogo público y en la sección "Mi armadura" del formulario.
+        // El campo aparece/oculta según la categoría vía syncIdField(); como
+        // acá lo dejamos deshabilitado, igual queda legible para auditoría.
+        if (idEl) {
+          idEl.value = product.id;
+          idEl.disabled = true;
+        }
+
+        // Cargamos la imagen actual (data URL guardada en la fila). Si el
+        // usuario sube otra, currentImage pasa a la nueva; si no toca nada,
+        // conservamos la original.
+        if (product.image) {
+          currentImage = product.image;
+          preview.src = product.image;
+          preview.hidden = false;
+          content.hidden = true;
+          zone.classList.add('has-image');
+        } else {
+          currentImage = null;
+          preview.hidden = true;
+          content.hidden = false;
+          zone.classList.remove('has-image');
+        }
+        zone.classList.remove('drag');
+        input.value = '';
+
+        syncIdField();
+        setProductFormMode('edit');
+        switchView('nuevo', 'Editar producto');
       }
 
       /* ============================================================
@@ -1381,9 +1522,14 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         const zone = document.getElementById('uploadZone');
         const preview = document.getElementById('uploadPreview') as HTMLImageElement | null;
         const content = document.getElementById('uploadContent');
+        const idEl = document.getElementById('pId') as HTMLInputElement | null;
         zone?.classList.remove('has-image', 'drag');
         if (preview) preview.hidden = true;
         if (content) content.hidden = false;
+        // Reactivar el campo ID (queda deshabilitado durante editProduct).
+        if (idEl) idEl.disabled = false;
+        editingProductId = null;
+        setProductFormMode('create');
         // Después de resetear, dejamos el campo ID según la categoría
         // actualmente seleccionada (puede seguir oculta si es auto).
         syncIdField();
@@ -1781,10 +1927,10 @@ import MarkdownHelpModal from '../../components/admin/MarkdownHelpModal.astro';
         document.getElementById('filterCategory')?.addEventListener('change', renderTable);
 
         const form = document.getElementById('productForm');
-        form?.addEventListener('submit', onCreateProduct as unknown as EventListener);
+        form?.addEventListener('submit', onSubmitProduct as unknown as EventListener);
         document.getElementById('cancelBtn')?.addEventListener('click', () => {
           resetForm();
-          switchView('dashboard');
+          switchView('productos');
         });
 
         // Posts
