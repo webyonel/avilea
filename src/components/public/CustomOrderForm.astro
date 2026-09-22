@@ -363,7 +363,7 @@ const {} = Astro.props;
         <div class="tryon-stage" data-stage="preview" hidden>
           <div class="tryon-canvas">
             <img class="tryon-photo" alt="Tu foto" />
-            <div class="tryon-frame-overlay" aria-hidden="true" data-frame-overlay></div>
+            <div class="tryon-frame-overlay" aria-hidden="true" data-frame-overlay title="Arrastrá para mover · Scroll o pinch para zoom · Shift+arrastrar para rotar"></div>
             <div class="tryon-hint" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
@@ -1090,12 +1090,14 @@ const {} = Astro.props;
     top: 32%;
     left: 50%;
     width: 56%;
-    /* Composición: centrar + rotate MediaPipe + translate/scale del usuario.
-       El orden importa: translate después de rotate hace que el drag
-       opere en el frame rotado (sigue a la cabeza), y scale después de
-       translate mantiene la distancia de drag constante visualmente. */
+    /* Composición: centrar + rotate MediaPipe + translate + rotate usuario
+       + scale. El orden importa: translate después del rotate MediaPipe
+       hace que el drag opere en el frame de la cabeza; el rotate del
+       usuario va entre translate y scale para rotar alrededor del centro
+       offsetteado; scale al final escala alrededor del nuevo centro. */
     transform: translate(-50%, -50%) rotate(var(--overlay-rotate, 0deg))
                translate(var(--overlay-tx, 0px), var(--overlay-ty, 0px))
+               rotate(var(--overlay-rotate-user, 0deg))
                scale(var(--overlay-scale, 1));
     transform-origin: 50% 50%;
     pointer-events: auto;       /* el overlay captura drag/pinch */
@@ -1757,6 +1759,7 @@ const {} = Astro.props;
               overlay!.style.setProperty('--overlay-tx', `${adj.tx}px`);
               overlay!.style.setProperty('--overlay-ty', `${adj.ty}px`);
               overlay!.style.setProperty('--overlay-scale', String(adj.scale));
+              overlay!.style.setProperty('--overlay-rotate-user', `${adj.rotation}deg`);
             },
           })
         : null;
