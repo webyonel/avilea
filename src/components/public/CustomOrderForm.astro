@@ -44,8 +44,8 @@ const {} = Astro.props;
         </svg>
       </div>
       <div class="tryon-callout__body">
-        <p class="tryon-callout__title">¿Querés ver cómo te quedan antes de pedirlas?</p>
-        <p class="tryon-callout__text">Probá nuestras armaduras con tu propia foto, ahora mismo, desde el celular.</p>
+        <p class="tryon-callout__title">¿Quieres ver cómo te quedan antes de pedirlas?</p>
+        <p class="tryon-callout__text">Prueba nuestras armaduras con tu propia foto, ahora mismo, desde el celular.</p>
       </div>
       <button type="button" class="btn btn-primary tryon-callout__btn" data-tryon-open>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="18" height="18">
@@ -86,7 +86,7 @@ const {} = Astro.props;
         </div>
 
         <p class="armadura-hint" data-armadura-hint>
-          Sin selección. Elegí una armadura del catálogo de abajo o probá las armaduras arriba con el probador virtual.
+          Sin selección. Elige una armadura del catálogo de abajo o prueba las armaduras arriba con el probador virtual.
         </p>
 
         <div class="armadura-custom-select" data-armadura-select-wrap>
@@ -100,10 +100,10 @@ const {} = Astro.props;
             <span class="armadura-custom-select__thumb" data-armadura-select-thumb aria-hidden="true"></span>
             <span class="armadura-custom-select__info">
               <span class="armadura-custom-select__name" data-armadura-select-name>
-                Elegí una armadura del catálogo
+                Elige una armadura del catálogo
               </span>
               <span class="armadura-custom-select__price" data-armadura-select-price>
-                o usá el probador arriba
+                o usa el probador arriba
               </span>
             </span>
             <span class="armadura-custom-select__chevron" aria-hidden="true">
@@ -151,7 +151,7 @@ const {} = Astro.props;
       </fieldset>
 
       <fieldset class="choices-block">
-        <legend>Tratamientos <span class="form-hint-inline">(podés elegir varios)</span></legend>
+        <legend>Tratamientos <span class="form-hint-inline">(puedes elegir varios)</span></legend>
         <div class="choices-row">
           {TREATMENTS.map((t) => (
             <div class="choice-item">
@@ -171,7 +171,7 @@ const {} = Astro.props;
       </fieldset>
 
       <fieldset class="choices-block">
-        <legend>Distancias focales <span class="form-hint-inline">(podés elegir varias)</span></legend>
+        <legend>Distancias focales <span class="form-hint-inline">(puedes elegir varias)</span></legend>
         <div class="choices-row">
           {FOCAL_DISTANCES.map((f) => (
             <div class="choice-item">
@@ -290,7 +290,7 @@ const {} = Astro.props;
       <aside class="order-pricing" data-order-pricing>
         <div class="order-pricing__head">
           <h4 class="order-pricing__title">Precio estimado</h4>
-          <p class="order-pricing__sub" data-pricing-sub>Elegí material y distancia focal para ver el precio.</p>
+          <p class="order-pricing__sub" data-pricing-sub>Elige material y distancia focal para ver el precio.</p>
         </div>
         <div class="order-pricing__body" data-pricing-body></div>
         <p class="order-pricing__rate-note" data-pricing-rate-note hidden></p>
@@ -315,7 +315,7 @@ const {} = Astro.props;
       <header class="tryon-header">
         <div class="tryon-header__text">
           <span class="tryon-eyebrow">Probador virtual</span>
-          <h3 id="tryonTitle" class="tryon-title">Probá nuestras armaduras</h3>
+          <h3 id="tryonTitle" class="tryon-title">Prueba nuestras armaduras</h3>
         </div>
         <button type="button" class="tryon-close" aria-label="Cerrar" data-tryon-close>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="22" height="22">
@@ -363,12 +363,12 @@ const {} = Astro.props;
         <div class="tryon-stage" data-stage="preview" hidden>
           <div class="tryon-canvas">
             <img class="tryon-photo" alt="Tu foto" />
-            <div class="tryon-frame-overlay" aria-hidden="true" data-frame-overlay title="Arrastrá para mover · Scroll o pinch para zoom · Shift+arrastrar para rotar"></div>
+            <div class="tryon-frame-overlay" aria-hidden="true" data-frame-overlay title="Arrastra para mover · Scroll o pinch para zoom · Shift+arrastrar para rotar"></div>
             <div class="tryon-hint" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
                 <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
               </svg>
-              Mirá al frente y mantené la cabeza derecha para una mejor vista.
+              Mira al frente y mantén la cabeza derecha para una mejor vista.
             </div>
             <button type="button" class="btn btn-ghost tryon-replace" data-tryon-replace>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="16" height="16">
@@ -393,7 +393,7 @@ const {} = Astro.props;
                   <polyline points="15 18 9 12 15 6"/>
                 </svg>
               </button>
-              <ul class="tryon-rail__list" role="radiogroup" aria-label="Elegí una armadura" data-tryon-rail>
+              <ul class="tryon-rail__list" role="radiogroup" aria-label="Elige una armadura" data-tryon-rail>
                 {/* El script del final inyecta las armaduras runtime con sharedFetchProducts. */}
               </ul>
               <button type="button" class="tryon-rail__nav tryon-rail__nav--next" aria-label="Siguiente" data-tryon-rail-next>
@@ -408,8 +408,8 @@ const {} = Astro.props;
 
       <footer class="tryon-footer">
         <p class="tryon-footer__text">
-          Probá todas las armaduras sin compromiso. Cuando encuentres la tuya,
-          <button type="button" class="tryon-footer__link" data-tryon-jump>completá el pedido</button>.
+          Prueba todas las armaduras sin compromiso. Cuando encuentres la tuya,
+          <button type="button" class="tryon-footer__link" data-tryon-jump>completa el pedido</button>.
         </p>
       </footer>
 
@@ -1624,7 +1624,7 @@ const {} = Astro.props;
     // Sin material+focal todavía → mensaje de ayuda
     if (!pricing) {
       pricingBody.innerHTML = '';
-      pricingSub.textContent = 'Elegí material y distancia focal para ver el precio.';
+      pricingSub.textContent = 'Elige material y distancia focal para ver el precio.';
       pricingSub.hidden = false;
       pricingRateNote.hidden = true;
       return;
@@ -1703,7 +1703,7 @@ const {} = Astro.props;
       rows.push(`
         <div class="order-pricing__row order-pricing__row--armadura">
           <div class="order-pricing__row-label">Armadura</div>
-          <div class="order-pricing__amount order-pricing__amount-usd">— (elegila arriba o tipeá el precio)</div>
+          <div class="order-pricing__amount order-pricing__amount-usd">— (elígela arriba o escribe el precio)</div>
         </div>
       `);
     }
@@ -2047,8 +2047,8 @@ const {} = Astro.props;
         if (armaduraManualName) armaduraManualName.value = '';
         if (armaduraManualPrice) armaduraManualPrice.value = '';
         // Reset del trigger del custom select a su estado placeholder
-        if (armaduraSelectName) armaduraSelectName.textContent = 'Elegí una armadura del catálogo';
-        if (armaduraSelectPrice) armaduraSelectPrice.textContent = 'o usá el probador arriba';
+        if (armaduraSelectName) armaduraSelectName.textContent = 'Elige una armadura del catálogo';
+        if (armaduraSelectPrice) armaduraSelectPrice.textContent = 'o usa el probador arriba';
         if (armaduraSelectThumb) armaduraSelectThumb.innerHTML = '';
         if (armaduraSelectWrap) armaduraSelectWrap.classList.remove('armadura-custom-select--selected');
         getOptions().forEach((o) => o.setAttribute('aria-selected', 'false'));
@@ -2254,7 +2254,7 @@ const {} = Astro.props;
         } else {
           resetOverlayPosition(overlay);
           setDetectionMessage(
-            'No detectamos una cara mirando al frente. Probá con otra foto más clara.'
+            'No detectamos una cara mirando al frente. Prueba con otra foto más clara.'
           );
         }
       }

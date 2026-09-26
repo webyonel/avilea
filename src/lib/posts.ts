@@ -53,28 +53,28 @@ export const DEFAULT_POSTS: Post[] = [
 
 Tus espejuelos te acompañan todo el día: en el trabajo, mirando el celular, leyendo, conduciendo. Tratarlos con un mínimo de cuidado evita cristales rayados, armaduras desalineadas y visitas extra al local.
 
-### 1. Limpiá siempre con paño de microfibra
+### 1. Limpia siempre con paño de microfibra
 
-El borde de la remera, una servilleta de papel o la punta del pañuelo dejan micro-rayones que con el tiempo empañan la visión. Usá el paño de microfibra que te entregamos con la compra y, si necesitás líquido, nuestro **kit de limpieza**.
+El borde de la remera, una servilleta de papel o la punta del pañuelo dejan micro-rayones que con el tiempo empañan la visión. Usa el paño de microfibra que te entregamos con la compra y, si necesitas líquido, nuestro **kit de limpieza**.
 
-### 2. Guardalos en su estuche cuando no los uses
+### 2. Guárdalos en su estuche cuando no los uses
 
-Un estuche rígido los protege de caídas y de apoyarlos boca abajo sobre la mesa. Si todavía no tenés, en cualquiera de nuestros tres locales te conseguimos uno en el momento.
+Un estuche rígido los protege de caídas y de apoyarlos boca abajo sobre la mesa. Si todavía no tienes, en cualquiera de nuestros tres locales te conseguimos uno en el momento.
 
-### 3. Evitá dejarlos en el baño o en el auto
+### 3. Evita dejarlos en el baño o en el auto
 
 El calor extremo (guantera en verano) deforma armaduras de plástico y despega tratamientos antirreflejo. La humedad del baño favorece la oxidación de las bisagras metálicas.
 
-### 4. Ajustá las patillas apenas notes que se aflojan
+### 4. Ajusta las patillas apenas notes que se aflojan
 
-La mayoría de las armaduras traen un tornillo pequeño detrás de la bisagra que se afloja con el uso. Si te pasa, pasá por el local y te las dejamos como nuevas **sin costo**.
+La mayoría de las armaduras traen un tornillo pequeño detrás de la bisagra que se afloja con el uso. Si te pasa, pasa por el local y te las dejamos como nuevas **sin costo**.
 
-### 5. Hacé una revisión una vez al año
+### 5. Haz una revisión una vez al año
 
 Con el uso, la alineación se corre aunque no lo notes. Una revisión rápida en el local detecta el problema antes de que te genere dolor de cabeza o mareos.
 
 ---
-¿Tenés alguna duda sobre el cuidado de tus espejuelos? **Escribinos por WhatsApp** y te orientamos sin compromiso.`,
+¿Tienes alguna duda sobre el cuidado de tus espejuelos? **Escríbenos por WhatsApp** y te orientamos sin compromiso.`,
     cover: 'https://picsum.photos/seed/avilea-cuidado/960/640',
     date: '2026-09-01',
     category: 'cuidados',
@@ -119,7 +119,7 @@ La graduación se monta sobre un material, y ese material cambia el peso, el gro
 En el local, después del examen de vista, te recomendamos el material según tu graduación, tu rutina y tu presupuesto. No vendemos lo más caro ni lo más barato: vendemos el que **te va a durar más cómodo**.
 
 ---
-Si tenés una receta a mano y querés un presupuesto, **mandános una foto por WhatsApp** y te respondemos con las opciones y el precio final.`,
+Si tienes una receta a mano y quieres un presupuesto, **mándanos una foto por WhatsApp** y te respondemos con las opciones y el precio final.`,
     cover: 'https://picsum.photos/seed/avilea-materiales/960/640',
     date: '2026-08-20',
     category: 'gafas',
@@ -142,10 +142,10 @@ Esta semana empezamos a exhibir la **colección primavera 2026** en los tres loc
 - Líneas **masculinas** más rectas, en azul y negro mate.
 - Algunos modelos en **policarbonato** listos para graduaciones altas.
 
-Todos los modelos de la colección se pueden graduar con tu receta. Si todavía no tenés el examen actualizado, te agendamos un turno en el local — demora unos 15 minutos y es **gratis**.
+Todos los modelos de la colección se pueden graduar con tu receta. Si todavía no tienes el examen actualizado, te agendamos un turno en el local — demora unos 15 minutos y es **gratis**.
 
 ---
-Pasá por el local que te quede más cómodo o **escribinos por WhatsApp** para ver catálogo en foto antes de venir.`,
+Pasa por el local que te quede más cómodo o **escríbenos por WhatsApp** para ver catálogo en foto antes de venir.`,
     cover: 'https://picsum.photos/seed/avilea-primavera/960/640',
     date: '2026-08-10',
     category: 'novedades',

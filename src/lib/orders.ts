@@ -213,7 +213,7 @@ export function orderToMessage(
   // para que el cliente lo reconozca; el ID queda como referencia interna.
   const armaduraLine = order.armaduraId
     ? `• ${v(order.armaduraNombre)} — ${v(order.armaduraPrecio)} MN (cat. ${order.armaduraId})`
-    : '• — (elegila desde el probador virtual antes de mandar el pedido)';
+    : '• — (elígela desde el probador virtual antes de mandar el pedido)';
 
   const lines: string[] = [
     'Hola Avilea, necesito mandar a hacer unos espejuelos a medida.',

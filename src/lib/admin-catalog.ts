@@ -40,7 +40,7 @@ const USD_RATE_KEY = 'avilea_usd_rate';
 /** @deprecated Usar el endpoint `/api/admin/settings/usd-rate`. */
 export function loadUsdRate(): number | null {
   if (typeof console !== 'undefined') {
-    console.warn('[admin-catalog] loadUsdRate() deprecated → usá la API.');
+    console.warn('[admin-catalog] loadUsdRate() deprecated → usa la API.');
   }
   if (typeof localStorage === 'undefined') return null;
   try {
@@ -57,7 +57,7 @@ export function loadUsdRate(): number | null {
 /** @deprecated Usar el endpoint `/api/admin/settings/usd-rate`. */
 export function saveUsdRate(rate: number): void {
   if (typeof console !== 'undefined') {
-    console.warn('[admin-catalog] saveUsdRate() deprecated → usá la API.');
+    console.warn('[admin-catalog] saveUsdRate() deprecated → usa la API.');
   }
   if (typeof localStorage === 'undefined') return;
   try {
